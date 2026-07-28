@@ -248,20 +248,23 @@ final class MaintainerSeeder
         $relationUpdateStatement = $db->prepare(
             'UPDATE session_topic_type_subtypes
              SET is_active = 1,
+                 is_public = 1,
                  updated_at = NOW()
              WHERE id = :id'
         );
         $relationInsertStatement = $db->prepare(
             'INSERT INTO session_topic_type_subtypes (
-                session_topic_type_id,
-                session_topic_subtype_id,
-                is_active,
+                 session_topic_type_id,
+                 session_topic_subtype_id,
+                 is_public,
+                 is_active,
                 created_at,
                 updated_at
              )
              VALUES (
                 :session_topic_type_id,
                 :session_topic_subtype_id,
+                1,
                 1,
                 NOW(),
                 NOW()
@@ -327,9 +330,10 @@ final class MaintainerSeeder
                     code,
                     name,
                     description,
-                    color,
-                    sort_order,
-                    is_active,
+                     color,
+                     sort_order,
+                     is_public,
+                     is_active,
                     created_at,
                     updated_at
                  )
@@ -340,6 +344,7 @@ final class MaintainerSeeder
                     :color,
                     :sort_order,
                     1,
+                    1,
                     NOW(),
                     NOW()
                  )
@@ -348,6 +353,7 @@ final class MaintainerSeeder
                     description = VALUES(description),
                     color = VALUES(color),
                     sort_order = VALUES(sort_order),
+                    is_public = 1,
                     is_active = 1,
                     updated_at = NOW()"
             );
