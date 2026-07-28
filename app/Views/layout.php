@@ -478,6 +478,7 @@
             const allPayload = document.querySelector('[data-session-topic-all-subtypes]');
             const help = document.querySelector('[data-session-topic-help]');
             const addButton = document.querySelector('[data-add-session-topic]');
+            const clearButton = document.querySelector('[data-clear-session-topic]');
             const selectedList = document.querySelector('[data-session-topic-selected]');
             const hiddenContainer = document.querySelector('[data-session-topic-hidden]');
             let pendingConfirm = null;
@@ -538,6 +539,22 @@
                 subtypeInput.value = '';
                 renderSubtypes();
             });
+
+            const clearTopicSelection = function () {
+                typeInput.value = '';
+                subtypeInput.value = '';
+                renderSubtypes();
+
+                if (help) {
+                    help.textContent = 'Selección limpia. Elige un tipo para cargar sus subtipos relacionados.';
+                }
+
+                typeInput.focus();
+            };
+
+            if (clearButton) {
+                clearButton.addEventListener('click', clearTopicSelection);
+            }
 
             if (addButton && selectedList && hiddenContainer) {
                 let topicIndex = 0;

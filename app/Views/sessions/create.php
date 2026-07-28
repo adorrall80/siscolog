@@ -106,7 +106,7 @@ ob_start();
                                 name="topic_type_text"
                                 list="session-topic-types"
                                 data-session-topic-type
-                                placeholder="Seleccione categoria"
+                                placeholder="Seleccione o escriba un tema nuevo"
                             >
                         </label>
                     </div>
@@ -118,13 +118,15 @@ ob_start();
                                 name="topic_subtype_text"
                                 list="session-topic-subtypes"
                                 data-session-topic-subtype
-                                placeholder="Seleccione subtipo"
+                                placeholder="Seleccione o escriba un subtipo nuevo"
                             >
                         </label>
                     </div>
                 </div>
+                <p class="form-help">Si el tema o subtipo no existe, puedes escribirlo. La nueva relación quedará guardada como privada para tu usuario.</p>
                 <div class="actions-row">
                     <button class="button small secondary" type="button" data-add-session-topic>Agregar tema</button>
+                    <button class="button small secondary" type="button" data-clear-session-topic>Limpiar selección</button>
                 </div>
                 <div class="subtype-chip-list" data-session-topic-selected>
                     <span class="tag tone-gray" data-empty-session-topic>Sin temas agregados todavia</span>
