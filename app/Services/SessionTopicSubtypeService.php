@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Models\SessionTopicSubtype;
 use App\Repositories\SessionTopicSubtypeRepository;
 use InvalidArgumentException;
+use RuntimeException;
 
 final class SessionTopicSubtypeService
 {
@@ -83,6 +84,7 @@ final class SessionTopicSubtypeService
     public function createAndRelate(int $topicTypeId, array $data, ?array $user = null): int
     {
         $data = $this->normalize($data);
+        $data['created_by_user_id'] = $this->userId($user);
         $existing = $this->subtypes->findByCode($data['code']);
         $subtypeId = $existing?->id;
 
@@ -90,7 +92,7 @@ final class SessionTopicSubtypeService
             $subtypeId = $this->subtypes->create($data);
         }
 
-        $this->subtypes->relate($topicTypeId, $subtypeId, $this->userId($user));
+        $this->subtypes->relate($topicTypeId, $subtypeId, $this->userId($user), false);
 
         return $subtypeId;
     }
@@ -104,7 +106,11 @@ final class SessionTopicSubtypeService
 
         return [
             'subtype_id' => $subtypeId,
-            'relation_id' => $this->subtypes->relationId($topicTypeId, $subtypeId),
+            'relation_id' => $this->subtypes->relationId(
+                $topicTypeId,
+                $subtypeId,
+                $this->userId($user)
+            ),
         ];
     }
 
@@ -114,21 +120,35 @@ final class SessionTopicSubtypeService
             throw new InvalidArgumentException('Debes seleccionar un subtipo para asociar.');
         }
 
-        return $this->subtypes->relate($topicTypeId, $subtypeId, $this->userId($user));
+        return $this->subtypes->relate($topicTypeId, $subtypeId, $this->userId($user), false);
     }
 
-    public function setActive(int $topicTypeId, int $relationId, bool $active): void
+    public function setActive(int $topicTypeId, int $relationId, bool $active, ?array $user = null): void
     {
+        $this->assertAdministrator($user);
         $this->subtypes->setRelationActive($topicTypeId, $relationId, $active);
     }
 
-    public function deleteRelation(int $topicTypeId, int $relationId): void
+    public function deleteRelation(int $topicTypeId, int $relationId, ?array $user = null): void
     {
+        $this->assertAdministrator($user);
+
         if ($relationId <= 0) {
             throw new InvalidArgumentException('Debes seleccionar una relacion para quitar.');
         }
 
         $this->subtypes->deleteRelation($topicTypeId, $relationId);
+    }
+
+    public function setPublic(int $topicTypeId, int $relationId, bool $isPublic, ?array $user = null): void
+    {
+        $this->assertAdministrator($user);
+
+        if ($relationId <= 0) {
+            throw new InvalidArgumentException('Debes seleccionar una relacion valida.');
+        }
+
+        $this->subtypes->setRelationPublic($topicTypeId, $relationId, $isPublic);
     }
 
     private function normalize(array $data): array
@@ -164,6 +184,13 @@ final class SessionTopicSubtypeService
     private function canSeeAll(?array $user): bool
     {
         return (string) ($user['role'] ?? '') === 'administrador';
+    }
+
+    private function assertAdministrator(?array $user): void
+    {
+        if (!$this->canSeeAll($user)) {
+            throw new RuntimeException('Solo un administrador puede modificar relaciones generales o ajenas.');
+        }
     }
 
     private function slug(string $value): string

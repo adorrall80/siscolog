@@ -14,7 +14,10 @@ final class MaintainerOption
         public readonly ?string $description,
         public readonly ?string $color,
         public readonly int $sortOrder,
-        public readonly bool $isActive
+        public readonly bool $isActive,
+        public readonly ?int $createdByUserId = null,
+        public readonly ?bool $isPublic = null,
+        public readonly ?string $createdByUserName = null
     ) {
     }
 }

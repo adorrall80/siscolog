@@ -48,6 +48,7 @@ final class UserSeeder
              )
              ON DUPLICATE KEY UPDATE
                 name = VALUES(name),
+                password_hash = VALUES(password_hash),
                 role = VALUES(role),
                 status = VALUES(status),
                 profession = VALUES(profession),
@@ -65,7 +66,7 @@ final class UserSeeder
             [
                 'name' => 'Administrador SisColog',
                 'email' => 'admin@siscolog.local',
-                'password' => 'admin123',
+                'password' => '1',
                 'role' => 'administrador',
                 'status' => 'activo',
                 'profession' => '',
@@ -80,7 +81,7 @@ final class UserSeeder
             [
                 'name' => 'Profesional Demo',
                 'email' => 'profesional@siscolog.local',
-                'password' => 'demo123',
+                'password' => '1',
                 'role' => 'profesional',
                 'status' => 'activo',
                 'profession' => 'Profesional de atencion',
@@ -95,7 +96,7 @@ final class UserSeeder
             [
                 'name' => 'Supervisor Demo',
                 'email' => 'supervisor@siscolog.local',
-                'password' => 'demo123',
+                'password' => '1',
                 'role' => 'supervisor',
                 'status' => 'activo',
                 'profession' => 'Supervisor clinico',

@@ -474,6 +474,7 @@
             const subtypeInput = document.querySelector('[data-session-topic-subtype]');
             const subtypeList = document.querySelector('#session-topic-subtypes');
             const payload = document.querySelector('[data-session-topic-map]');
+            const scopePayload = document.querySelector('[data-session-topic-scope-map]');
             const allPayload = document.querySelector('[data-session-topic-all-subtypes]');
             const help = document.querySelector('[data-session-topic-help]');
             const addButton = document.querySelector('[data-add-session-topic]');
@@ -486,12 +487,19 @@
             }
 
             let map = {};
+            let scopeMap = {};
             let allSubtypes = [];
 
             try {
                 map = JSON.parse(payload.textContent || '{}');
             } catch (error) {
                 map = {};
+            }
+
+            try {
+                scopeMap = JSON.parse(scopePayload ? scopePayload.textContent || '{}' : '{}');
+            } catch (error) {
+                scopeMap = {};
             }
 
             try {
@@ -509,6 +517,7 @@
                 subtypes.forEach(function (name) {
                     const option = document.createElement('option');
                     option.value = name;
+                    option.label = (scopeMap[key] && scopeMap[key][name]) || '';
                     subtypeList.appendChild(option);
                 });
 

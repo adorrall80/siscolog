@@ -89,6 +89,18 @@ final class MaintainerService
     }
 
     /**
+     * @return MaintainerOption[]
+     */
+    public function activeVisible(string $table, ?array $user = null): array
+    {
+        return $this->maintainers->activeVisible(
+            $table,
+            $this->userId($user),
+            $this->canSeeAll($user)
+        );
+    }
+
+    /**
      * @return array<string, MaintainerOption[]>
      */
     public function allGrouped(): array
@@ -163,7 +175,7 @@ final class MaintainerService
         $this->maintainers->create($table, $data);
     }
 
-    public function findOrCreateSessionTopicType(string $name): MaintainerOption
+    public function findOrCreateSessionTopicType(string $name, ?array $user = null): MaintainerOption
     {
         $name = trim($name);
 
@@ -172,25 +184,24 @@ final class MaintainerService
         }
 
         $code = $this->slug($name);
-        $existing = $this->maintainers->findByCode(self::SESSION_TOPIC_TYPES, $code);
-
-        if ($existing !== null) {
-            return $existing;
-        }
-
-        foreach ($this->all(self::SESSION_TOPIC_TYPES) as $option) {
+        foreach ($this->activeVisible(self::SESSION_TOPIC_TYPES, $user) as $option) {
             if ($this->slug($option->name) === $code) {
                 return $option;
             }
         }
 
+        $creatorId = $this->userId($user);
+        $privateCode = $creatorId !== null ? $code . '_u' . $creatorId : $code;
+
         $id = $this->maintainers->create(self::SESSION_TOPIC_TYPES, [
-            'code' => $code,
+            'code' => $privateCode,
             'name' => $name,
             'description' => '',
             'color' => 'blue',
             'sort_order' => 0,
             'is_active' => 1,
+            'created_by_user_id' => $creatorId,
+            'is_public' => 0,
         ]);
 
         return $this->find(self::SESSION_TOPIC_TYPES, $id);
@@ -217,6 +228,16 @@ final class MaintainerService
     {
         $this->find($table, $id);
         $this->maintainers->setActive($table, $id, $active);
+    }
+
+    public function setTopicTypePublic(int $id, bool $isPublic, ?array $user = null): void
+    {
+        if (!$this->canSeeAll($user)) {
+            throw new RuntimeException('Solo un administrador puede cambiar la visibilidad de un tema.');
+        }
+
+        $this->find(self::SESSION_TOPIC_TYPES, $id);
+        $this->maintainers->setTopicTypePublic($id, $isPublic);
     }
 
     public function labelFor(string $table): string
@@ -303,5 +324,17 @@ final class MaintainerService
         );
 
         return preg_replace('/[^a-z0-9_]+/', '', $value) ?: 'valor';
+    }
+
+    private function userId(?array $user): ?int
+    {
+        $id = (int) ($user['id'] ?? 0);
+
+        return $id > 0 ? $id : null;
+    }
+
+    private function canSeeAll(?array $user): bool
+    {
+        return (string) ($user['role'] ?? '') === 'administrador';
     }
 }

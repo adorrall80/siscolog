@@ -23,7 +23,12 @@ final class Router
         $route = $this->match($request);
 
         if ($route === null) {
-            return new Response('404 - Pagina no encontrada', 404);
+            return Response::view('errors.not_found', [
+                'errorTitle' => 'Página no encontrada',
+                'errorMessage' => 'La dirección ingresada no corresponde a una página disponible en SisColog.',
+                'backUrl' => '/',
+                'backLabel' => 'Volver al menú',
+            ], 404);
         }
 
         [$controllerClass, $method, $request] = $route;

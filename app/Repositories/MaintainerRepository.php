@@ -37,9 +37,12 @@ final class MaintainerRepository
     {
         $this->guardTable($table);
 
-        $statement = $this->db->query(
-            "SELECT * FROM {$table} ORDER BY sort_order ASC, name ASC"
-        );
+        $statement = $this->db->query($table === 'session_topic_types'
+            ? 'SELECT t.*, u.name AS created_by_user_name
+               FROM session_topic_types t
+               LEFT JOIN users u ON u.id = t.created_by_user_id
+               ORDER BY t.sort_order ASC, t.name ASC'
+            : "SELECT * FROM {$table} ORDER BY sort_order ASC, name ASC");
 
         return array_map(
             fn (array $row): MaintainerOption => $this->map($table, $row),
@@ -54,9 +57,40 @@ final class MaintainerRepository
     {
         $this->guardTable($table);
 
-        $statement = $this->db->query(
-            "SELECT * FROM {$table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC"
+        $statement = $this->db->query($table === 'session_topic_types'
+            ? 'SELECT t.*, u.name AS created_by_user_name
+               FROM session_topic_types t
+               LEFT JOIN users u ON u.id = t.created_by_user_id
+               WHERE t.is_active = 1
+               ORDER BY t.sort_order ASC, t.name ASC'
+            : "SELECT * FROM {$table} WHERE is_active = 1 ORDER BY sort_order ASC, name ASC");
+
+        return array_map(
+            fn (array $row): MaintainerOption => $this->map($table, $row),
+            $statement->fetchAll()
         );
+    }
+
+    /**
+     * @return MaintainerOption[]
+     */
+    public function activeVisible(string $table, ?int $createdByUserId, bool $includeAll = false): array
+    {
+        $this->guardTable($table);
+
+        if ($table !== 'session_topic_types' || $includeAll) {
+            return $this->active($table);
+        }
+
+        $statement = $this->db->prepare(
+            'SELECT t.*, u.name AS created_by_user_name
+             FROM session_topic_types t
+             LEFT JOIN users u ON u.id = t.created_by_user_id
+             WHERE t.is_active = 1
+               AND (t.is_public = 1 OR t.created_by_user_id = :created_by_user_id)
+             ORDER BY t.is_public DESC, t.sort_order ASC, t.name ASC'
+        );
+        $statement->execute(['created_by_user_id' => $createdByUserId ?? 0]);
 
         return array_map(
             fn (array $row): MaintainerOption => $this->map($table, $row),
@@ -112,8 +146,36 @@ final class MaintainerRepository
 
         $this->db->beginTransaction();
 
-        $statement = $this->db->prepare(
-            "INSERT INTO {$table} (
+        if ($table === 'session_topic_types') {
+            $statement = $this->db->prepare(
+                "INSERT INTO {$table} (
+                    created_by_user_id,
+                    code,
+                    name,
+                    description,
+                    color,
+                    sort_order,
+                    is_public,
+                    is_active,
+                    created_at,
+                    updated_at
+                 )
+                 VALUES (
+                    :created_by_user_id,
+                    :code,
+                    :name,
+                    :description,
+                    :color,
+                    :sort_order,
+                    :is_public,
+                    :is_active,
+                    NOW(),
+                    NOW()
+                 )"
+            );
+        } else {
+            $statement = $this->db->prepare(
+                "INSERT INTO {$table} (
                 code,
                 name,
                 description,
@@ -133,7 +195,8 @@ final class MaintainerRepository
                 NOW(),
                 NOW()
              )"
-        );
+            );
+        }
 
         $params = [
             'code' => $data['code'],
@@ -143,6 +206,11 @@ final class MaintainerRepository
             'sort_order' => (int) $data['sort_order'],
             'is_active' => (int) $data['is_active'],
         ];
+
+        if ($table === 'session_topic_types') {
+            $params['created_by_user_id'] = ($data['created_by_user_id'] ?? null) ?: null;
+            $params['is_public'] = !empty($data['is_public']) ? 1 : 0;
+        }
 
         $statement->execute($params);
 
@@ -221,6 +289,19 @@ final class MaintainerRepository
         ]);
     }
 
+    public function setTopicTypePublic(int $id, bool $isPublic): void
+    {
+        $statement = $this->db->prepare(
+            'UPDATE session_topic_types
+             SET is_public = :is_public, updated_at = NOW()
+             WHERE id = :id'
+        );
+        $statement->execute([
+            'id' => $id,
+            'is_public' => $isPublic ? 1 : 0,
+        ]);
+    }
+
     /**
      * @return string[]
      */
@@ -246,7 +327,10 @@ final class MaintainerRepository
             $row['description'],
             $row['color'],
             (int) $row['sort_order'],
-            (bool) $row['is_active']
+            (bool) $row['is_active'],
+            isset($row['created_by_user_id']) ? (int) $row['created_by_user_id'] : null,
+            array_key_exists('is_public', $row) ? (bool) $row['is_public'] : null,
+            isset($row['created_by_user_name']) ? (string) $row['created_by_user_name'] : null
         );
     }
 }

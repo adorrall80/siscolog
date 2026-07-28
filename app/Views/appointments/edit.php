@@ -12,12 +12,18 @@ $allTopicSubtypes ??= [];
 $currentTopics ??= [];
 $currentParticipants ??= [];
 $topicSubtypePayload = [];
+$topicSubtypeScopePayload = [];
 
 foreach ($topicTypes as $topicType) {
-    $topicSubtypePayload[strtolower($topicType->name)] = array_map(
+    $topicKey = strtolower($topicType->name);
+    $topicSubtypePayload[$topicKey] = array_map(
         fn ($subtype): string => $subtype->name,
         $topicSubtypesByType[(int) $topicType->id] ?? []
     );
+    $topicSubtypeScopePayload[$topicKey] = [];
+    foreach ($topicSubtypesByType[(int) $topicType->id] ?? [] as $subtype) {
+        $topicSubtypeScopePayload[$topicKey][$subtype->name] = $subtype->relationIsPublic ? 'General' : 'Mío';
+    }
 }
 
 $allTopicSubtypePayload = array_map(
@@ -58,11 +64,15 @@ ob_start();
         </datalist>
         <datalist id="session-topic-types">
             <?php foreach ($topicTypes as $topicType): ?>
-                <option value="<?= View::escape($topicType->name) ?>"></option>
+                <option
+                    value="<?= View::escape($topicType->name) ?>"
+                    label="<?= $topicType->isPublic ? 'General' : 'Mío' ?>"
+                ></option>
             <?php endforeach; ?>
         </datalist>
         <datalist id="session-topic-subtypes"></datalist>
         <script type="application/json" data-session-topic-map><?= json_encode($topicSubtypePayload, JSON_UNESCAPED_UNICODE) ?></script>
+        <script type="application/json" data-session-topic-scope-map><?= json_encode($topicSubtypeScopePayload, JSON_UNESCAPED_UNICODE) ?></script>
         <script type="application/json" data-session-topic-all-subtypes><?= json_encode($allTopicSubtypePayload, JSON_UNESCAPED_UNICODE) ?></script>
         <script type="application/json" data-session-participant-types><?= json_encode($participantTypePayload, JSON_UNESCAPED_UNICODE) ?></script>
         <input type="hidden" name="replace_participants" value="1">

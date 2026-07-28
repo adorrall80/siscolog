@@ -42,7 +42,7 @@ final class SessionTopicSubtypeRepository
         $params = ['topic_type_id' => $topicTypeId];
 
         if (!$includeAll) {
-            $scopeSql = ' AND (r.created_by_user_id IS NULL OR r.created_by_user_id = :created_by_user_id)';
+            $scopeSql = ' AND (r.is_public = 1 OR r.created_by_user_id = :created_by_user_id)';
             $params['created_by_user_id'] = $createdByUserId ?? 0;
         }
 
@@ -95,10 +95,14 @@ final class SessionTopicSubtypeRepository
                 t.code AS topic_type_code,
                 t.name AS topic_type_name,
                 r.id AS relation_id,
-                r.is_active AS relation_is_active
+                r.is_active AS relation_is_active,
+                r.created_by_user_id AS relation_created_by_user_id,
+                r.is_public AS relation_is_public,
+                ru.name AS relation_created_by_user_name
              FROM session_topic_type_subtypes r
              INNER JOIN session_topic_subtypes s ON s.id = r.session_topic_subtype_id
              INNER JOIN session_topic_types t ON t.id = r.session_topic_type_id
+             LEFT JOIN users ru ON ru.id = r.created_by_user_id
              ORDER BY t.sort_order ASC, t.name ASC, s.sort_order ASC, s.name ASC'
         );
 
@@ -117,7 +121,7 @@ final class SessionTopicSubtypeRepository
         $params = ['topic_type_id' => $topicTypeId];
 
         if (!$includeAll) {
-            $scopeSql = ' AND (r.created_by_user_id IS NULL OR r.created_by_user_id = :created_by_user_id)';
+            $scopeSql = ' AND (r.is_public = 1 OR r.created_by_user_id = :created_by_user_id)';
             $params['created_by_user_id'] = $createdByUserId ?? 0;
         }
 
@@ -128,13 +132,17 @@ final class SessionTopicSubtypeRepository
                 t.code AS topic_type_code,
                 t.name AS topic_type_name,
                 r.id AS relation_id,
-                r.is_active AS relation_is_active
+                r.is_active AS relation_is_active,
+                r.created_by_user_id AS relation_created_by_user_id,
+                r.is_public AS relation_is_public,
+                ru.name AS relation_created_by_user_name
              FROM session_topic_type_subtypes r
              INNER JOIN session_topic_subtypes s ON s.id = r.session_topic_subtype_id
              INNER JOIN session_topic_types t ON t.id = r.session_topic_type_id
+             LEFT JOIN users ru ON ru.id = r.created_by_user_id
              WHERE r.session_topic_type_id = :topic_type_id
              ' . $scopeSql . '
-             ORDER BY r.created_by_user_id IS NULL DESC, s.sort_order ASC, s.name ASC'
+             ORDER BY r.is_public DESC, s.sort_order ASC, s.name ASC'
         );
         $statement->execute($params);
 
@@ -157,6 +165,7 @@ final class SessionTopicSubtypeRepository
     {
         $statement = $this->db->prepare(
             'INSERT INTO session_topic_subtypes (
+                created_by_user_id,
                 code,
                 name,
                 description,
@@ -167,6 +176,7 @@ final class SessionTopicSubtypeRepository
                 updated_at
              )
              VALUES (
+                :created_by_user_id,
                 :code,
                 :name,
                 :description,
@@ -178,6 +188,7 @@ final class SessionTopicSubtypeRepository
              )'
         );
         $statement->execute([
+            'created_by_user_id' => ($data['created_by_user_id'] ?? null) ?: null,
             'code' => $data['code'],
             'name' => $data['name'],
             'description' => $data['description'] ?: null,
@@ -188,7 +199,12 @@ final class SessionTopicSubtypeRepository
         return (int) $this->db->lastInsertId();
     }
 
-    public function relate(int $topicTypeId, int $subtypeId, ?int $createdByUserId = null): int
+    public function relate(
+        int $topicTypeId,
+        int $subtypeId,
+        ?int $createdByUserId = null,
+        bool $isPublic = false
+    ): int
     {
         $relationId = $this->visibleRelationId($topicTypeId, $subtypeId, $createdByUserId);
 
@@ -203,6 +219,7 @@ final class SessionTopicSubtypeRepository
                 created_by_user_id,
                 session_topic_type_id,
                 session_topic_subtype_id,
+                is_public,
                 is_active,
                 created_at,
                 updated_at
@@ -211,6 +228,7 @@ final class SessionTopicSubtypeRepository
                 :created_by_user_id,
                 :topic_type_id,
                 :subtype_id,
+                :is_public,
                 1,
                 NOW(),
                 NOW()
@@ -220,6 +238,7 @@ final class SessionTopicSubtypeRepository
             'created_by_user_id' => $createdByUserId,
             'topic_type_id' => $topicTypeId,
             'subtype_id' => $subtypeId,
+            'is_public' => $isPublic ? 1 : 0,
         ]);
 
         return (int) $this->db->lastInsertId();
@@ -248,6 +267,20 @@ final class SessionTopicSubtypeRepository
         $statement->execute([
             'id' => $relationId,
             'topic_type_id' => $topicTypeId,
+        ]);
+    }
+
+    public function setRelationPublic(int $topicTypeId, int $relationId, bool $isPublic): void
+    {
+        $statement = $this->db->prepare(
+            'UPDATE session_topic_type_subtypes
+             SET is_public = :is_public, updated_at = NOW()
+             WHERE id = :id AND session_topic_type_id = :topic_type_id'
+        );
+        $statement->execute([
+            'id' => $relationId,
+            'topic_type_id' => $topicTypeId,
+            'is_public' => $isPublic ? 1 : 0,
         ]);
     }
 
@@ -282,8 +315,8 @@ final class SessionTopicSubtypeRepository
              FROM session_topic_type_subtypes
              WHERE session_topic_type_id = :topic_type_id
                AND session_topic_subtype_id = :subtype_id
-               AND (created_by_user_id IS NULL OR created_by_user_id = :created_by_user_id)
-             ORDER BY created_by_user_id IS NULL DESC
+               AND (is_public = 1 OR created_by_user_id = :created_by_user_id)
+             ORDER BY is_public DESC
              LIMIT 1'
         );
         $statement->execute([
@@ -304,7 +337,8 @@ final class SessionTopicSubtypeRepository
             $row['description'],
             $row['color'],
             (int) $row['sort_order'],
-            (bool) $row['is_active']
+            (bool) $row['is_active'],
+            isset($row['created_by_user_id']) ? (int) $row['created_by_user_id'] : null
         );
     }
 
@@ -322,7 +356,11 @@ final class SessionTopicSubtypeRepository
             (string) $row['topic_type_code'],
             (string) $row['topic_type_name'],
             (int) $row['relation_id'],
-            (bool) $row['relation_is_active']
+            (bool) $row['relation_is_active'],
+            isset($row['created_by_user_id']) ? (int) $row['created_by_user_id'] : null,
+            isset($row['relation_created_by_user_id']) ? (int) $row['relation_created_by_user_id'] : null,
+            array_key_exists('relation_is_public', $row) ? (bool) $row['relation_is_public'] : null,
+            isset($row['relation_created_by_user_name']) ? (string) $row['relation_created_by_user_name'] : null
         );
     }
 }

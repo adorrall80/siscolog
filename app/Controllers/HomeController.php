@@ -204,15 +204,16 @@ final class HomeController
             return [];
         }
 
-        $params['current_user_id'] = $scope['user_id'];
+        $params['assigned_user_id'] = $scope['user_id'];
+        $params['session_user_id'] = $scope['user_id'];
 
         return [
-            "({$alias}.assigned_professional_id = :current_user_id
+            "({$alias}.assigned_professional_id = :assigned_user_id
               OR EXISTS (
                     SELECT 1
                     FROM clinical_sessions scope_cs
                     WHERE scope_cs.patient_id = {$alias}.id
-                      AND scope_cs.professional_id = :current_user_id
+                      AND scope_cs.professional_id = :session_user_id
               ))",
         ];
     }

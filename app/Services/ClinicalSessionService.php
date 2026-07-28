@@ -340,7 +340,10 @@ final class ClinicalSessionService
             return [];
         }
 
-        $topicType = $this->maintainers->findOrCreateSessionTopicType($typeName);
+        $topicType = $this->maintainers->findOrCreateSessionTopicType(
+            $typeName,
+            $this->userFromData($data)
+        );
         $subtypeId = $this->topicSubtypes->createAndRelate((int) $topicType->id, [
             'code' => '',
             'name' => $subtypeName,

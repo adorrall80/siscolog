@@ -68,7 +68,7 @@ final class AppointmentController
         $appointment = $this->appointments->find((int) $request->param('id'));
 
         if ($appointment === null) {
-            return new Response('404 - Cita no encontrada', 404);
+            return $this->notFound('Cita no encontrada');
         }
 
         if (!$this->canAccessAppointment($appointment->id)) {
@@ -79,7 +79,7 @@ final class AppointmentController
         $session = $this->sessions->findForPatient($appointment->patientId, $appointment->id);
 
         if ($session === null) {
-            return new Response('404 - Sesion no encontrada', 404);
+            return $this->notFound('Sesión clínica no encontrada');
         }
 
         return Response::view('appointments.show', [
@@ -93,7 +93,7 @@ final class AppointmentController
         $appointment = $this->appointments->find((int) $request->param('id'));
 
         if ($appointment === null) {
-            return new Response('404 - Cita no encontrada', 404);
+            return $this->notFound('Cita no encontrada');
         }
 
         if (!$this->canAccessAppointment($appointment->id)) {
@@ -104,10 +104,13 @@ final class AppointmentController
         $session = $this->sessions->findForPatient($appointment->patientId, $appointment->id);
 
         if ($session === null) {
-            return new Response('404 - Sesion no encontrada', 404);
+            return $this->notFound('Sesión clínica no encontrada');
         }
 
-        $topicTypes = $this->maintainers->active(MaintainerService::SESSION_TOPIC_TYPES);
+        $topicTypes = $this->maintainers->activeVisible(
+            MaintainerService::SESSION_TOPIC_TYPES,
+            $this->currentUser()
+        );
 
         return Response::view('appointments.edit', [
             'appointment' => $appointment,
@@ -130,7 +133,7 @@ final class AppointmentController
         $appointment = $this->appointments->find($appointmentId);
 
         if ($appointment === null) {
-            return new Response('404 - Cita no encontrada', 404);
+            return $this->notFound('Cita no encontrada');
         }
 
         if (!$this->canAccessAppointment($appointmentId)) {
@@ -394,6 +397,16 @@ final class AppointmentController
         $userId = (int) ($user['id'] ?? 0);
 
         return $userId > 0 && $this->appointments->professionalCanAccess($appointmentId, $userId);
+    }
+
+    private function notFound(string $title): Response
+    {
+        return Response::view('errors.not_found', [
+            'errorTitle' => $title,
+            'errorMessage' => 'Es posible que el registro haya sido eliminado o que la dirección corresponda a una sesión que ya no está disponible.',
+            'backUrl' => '/citas',
+            'backLabel' => 'Volver a Sesiones',
+        ], 404);
     }
 
     private function currentUser(): array

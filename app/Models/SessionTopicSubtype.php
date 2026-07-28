@@ -18,7 +18,11 @@ final class SessionTopicSubtype
         public readonly ?string $topicTypeCode = null,
         public readonly ?string $topicTypeName = null,
         public readonly ?int $relationId = null,
-        public readonly ?bool $relationIsActive = null
+        public readonly ?bool $relationIsActive = null,
+        public readonly ?int $createdByUserId = null,
+        public readonly ?int $relationCreatedByUserId = null,
+        public readonly ?bool $relationIsPublic = null,
+        public readonly ?string $relationCreatedByUserName = null
     ) {
     }
 }

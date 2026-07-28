@@ -54,8 +54,12 @@ $router->get('/maintainers/{table}/create', [MaintainerController::class, 'creat
 $router->post('/maintainers/{table}', [MaintainerController::class, 'store']);
 $router->post('/maintainers/tipos-tema-sesion/{id}/subtipos', [MaintainerController::class, 'storeTopicSubtype']);
 $router->post('/maintainers/tipos-tema-sesion/{id}/subtipos/{subtypeId}/quitar', [MaintainerController::class, 'deleteTopicSubtype']);
+$router->get('/maintainers/tipos-tema-sesion/{id}/subtipos/{subtypeId}/publicar', [MaintainerController::class, 'publishTopicSubtype']);
+$router->get('/maintainers/tipos-tema-sesion/{id}/subtipos/{subtypeId}/privatizar', [MaintainerController::class, 'privatizeTopicSubtype']);
 $router->get('/maintainers/tipos-tema-sesion/{id}/subtipos/{subtypeId}/activar', [MaintainerController::class, 'activateTopicSubtype']);
 $router->get('/maintainers/tipos-tema-sesion/{id}/subtipos/{subtypeId}/desactivar', [MaintainerController::class, 'deactivateTopicSubtype']);
+$router->get('/maintainers/tipos-tema-sesion/{id}/publicar', [MaintainerController::class, 'publishTopicType']);
+$router->get('/maintainers/tipos-tema-sesion/{id}/privatizar', [MaintainerController::class, 'privatizeTopicType']);
 $router->get('/maintainers/{table}/{id}/edit', [MaintainerController::class, 'edit']);
 $router->post('/maintainers/{table}/{id}/update', [MaintainerController::class, 'update']);
 $router->get('/maintainers/{table}/{id}/activate', [MaintainerController::class, 'activate']);

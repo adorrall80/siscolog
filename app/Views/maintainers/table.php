@@ -75,6 +75,10 @@ require __DIR__ . '/_menu.php';
                 <tr>
                     <th>Nombre</th>
                     <th>Color</th>
+                    <?php if ($table === \App\Services\MaintainerService::SESSION_TOPIC_TYPES): ?>
+                        <th>Visibilidad</th>
+                        <th>Creador</th>
+                    <?php endif; ?>
                     <th>Activo</th>
                     <th>Acciones</th>
                 </tr>
@@ -82,7 +86,7 @@ require __DIR__ . '/_menu.php';
             <tbody>
                 <?php if ($items === []): ?>
                     <tr>
-                        <td colspan="4">
+                        <td colspan="<?= $table === \App\Services\MaintainerService::SESSION_TOPIC_TYPES ? '6' : '4' ?>">
                             <strong>No hay valores para este filtro.</strong>
                             <small>Prueba con otro filtro o agrega un nuevo valor al mantenedor.</small>
                         </td>
@@ -97,9 +101,24 @@ require __DIR__ . '/_menu.php';
                             <?php endif; ?>
                         </td>
                         <td><span class="state tone-<?= View::escape($item->color ?: 'gray') ?>"><?= View::escape($item->color ?: 'sin color') ?></span></td>
+                        <?php if ($table === \App\Services\MaintainerService::SESSION_TOPIC_TYPES): ?>
+                            <td>
+                                <span class="state tone-<?= $item->isPublic ? 'blue' : 'green' ?>">
+                                    <?= $item->isPublic ? 'General' : 'Privado' ?>
+                                </span>
+                            </td>
+                            <td><?= View::escape($item->createdByUserName ?: 'Sistema') ?></td>
+                        <?php endif; ?>
                         <td><span class="state tone-<?= $item->isActive ? 'green' : 'red' ?>"><?= $item->isActive ? 'Activo' : 'Inactivo' ?></span></td>
                         <td class="table-actions">
                             <a class="action-link" href="/maintainers/<?= View::escape($tableSlug) ?>/<?= View::escape((string) $item->id) ?>/edit<?= View::escape($contextQuery) ?>">Editar</a>
+                            <?php if ($table === \App\Services\MaintainerService::SESSION_TOPIC_TYPES): ?>
+                                <?php if ($item->isPublic): ?>
+                                    <a class="action-link ghost" href="/maintainers/tipos-tema-sesion/<?= View::escape((string) $item->id) ?>/privatizar">Hacer privado</a>
+                                <?php else: ?>
+                                    <a class="action-link ghost" href="/maintainers/tipos-tema-sesion/<?= View::escape((string) $item->id) ?>/publicar">Publicar</a>
+                                <?php endif; ?>
+                            <?php endif; ?>
                             <?php if ($item->isActive): ?>
                                 <a class="switch-action is-on" href="/maintainers/<?= View::escape($tableSlug) ?>/<?= View::escape((string) $item->id) ?>/deactivate<?= View::escape($contextQuery) ?>" aria-label="Desactivar <?= View::escape($item->name) ?>">
                                     <span></span>

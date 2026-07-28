@@ -46,4 +46,16 @@ $item ??= null;
             <strong><?= ($item?->isActive ?? true) ? 'Vigente' : 'No vigente' ?></strong>
         </label>
     </div>
+
+    <?php if (($table ?? '') === \App\Services\MaintainerService::SESSION_TOPIC_TYPES && $item === null): ?>
+        <div class="switch-field">
+            <span>Visibilidad inicial</span>
+            <input type="hidden" name="is_public" value="0">
+            <label class="toggle-switch">
+                <input type="checkbox" name="is_public" value="1" checked>
+                <span></span>
+                <strong>General</strong>
+            </label>
+        </div>
+    <?php endif; ?>
 </fieldset>

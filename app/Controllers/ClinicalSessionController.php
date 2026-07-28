@@ -37,7 +37,10 @@ final class ClinicalSessionController
         $patientId = (int) $request->param('id');
 
         try {
-            $topicTypes = $this->maintainers->active(MaintainerService::SESSION_TOPIC_TYPES);
+            $topicTypes = $this->maintainers->activeVisible(
+                MaintainerService::SESSION_TOPIC_TYPES,
+                $this->currentUser()
+            );
 
             return Response::view('sessions.create', [
                 'patient' => $this->patients->findForUser($patientId, $this->currentUser()),

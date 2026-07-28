@@ -87,7 +87,14 @@ final class MaintainerController
         $tableSlug = $this->maintainers->slugFor($table);
 
         try {
-            $this->maintainers->create($table, $this->data($request));
+            $data = $this->data($request);
+
+            if ($table === MaintainerService::SESSION_TOPIC_TYPES) {
+                $data['created_by_user_id'] = (int) ($this->currentUser()['id'] ?? 0);
+                $data['is_public'] = (int) $request->input('is_public', 1);
+            }
+
+            $this->maintainers->create($table, $data);
             Session::flash('success', 'Valor mantenedor creado correctamente.');
         } catch (InvalidArgumentException $exception) {
             Session::flash('error', $exception->getMessage());
@@ -226,7 +233,7 @@ final class MaintainerController
 
         try {
             $this->maintainers->find(MaintainerService::SESSION_TOPIC_TYPES, $topicTypeId);
-            $this->topicSubtypes->deleteRelation($topicTypeId, $relationId);
+            $this->topicSubtypes->deleteRelation($topicTypeId, $relationId, $this->currentUser());
             Session::flash('success', 'Relacion quitada correctamente.');
 
             if ($isAsync) {
@@ -256,13 +263,68 @@ final class MaintainerController
 
         try {
             $this->maintainers->find(MaintainerService::SESSION_TOPIC_TYPES, $topicTypeId);
-            $this->topicSubtypes->setActive($topicTypeId, $subtypeId, $active);
+            $this->topicSubtypes->setActive($topicTypeId, $subtypeId, $active, $this->currentUser());
             Session::flash('success', $active ? 'Relacion activada correctamente.' : 'Relacion desactivada correctamente.');
         } catch (InvalidArgumentException|RuntimeException $exception) {
             Session::flash('error', $exception->getMessage());
         }
 
         return Response::redirect("/maintainers/tipos-tema-sesion/{$topicTypeId}/edit");
+    }
+
+    public function publishTopicSubtype(Request $request): Response
+    {
+        return $this->setTopicSubtypePublic($request, true);
+    }
+
+    public function privatizeTopicSubtype(Request $request): Response
+    {
+        return $this->setTopicSubtypePublic($request, false);
+    }
+
+    private function setTopicSubtypePublic(Request $request, bool $isPublic): Response
+    {
+        $topicTypeId = (int) $request->param('id');
+        $relationId = (int) $request->param('subtypeId');
+
+        try {
+            $topic = $this->maintainers->find(MaintainerService::SESSION_TOPIC_TYPES, $topicTypeId);
+
+            if ($isPublic && !$topic->isPublic) {
+                throw new RuntimeException('Primero debes publicar el tema antes de publicar una de sus relaciones.');
+            }
+
+            $this->topicSubtypes->setPublic($topicTypeId, $relationId, $isPublic, $this->currentUser());
+            Session::flash('success', $isPublic ? 'Relacion publicada correctamente.' : 'Relacion marcada como privada.');
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            Session::flash('error', $exception->getMessage());
+        }
+
+        return Response::redirect("/maintainers/tipos-tema-sesion/{$topicTypeId}/edit");
+    }
+
+    public function publishTopicType(Request $request): Response
+    {
+        return $this->setTopicTypePublic($request, true);
+    }
+
+    public function privatizeTopicType(Request $request): Response
+    {
+        return $this->setTopicTypePublic($request, false);
+    }
+
+    private function setTopicTypePublic(Request $request, bool $isPublic): Response
+    {
+        $id = (int) $request->param('id');
+
+        try {
+            $this->maintainers->setTopicTypePublic($id, $isPublic, $this->currentUser());
+            Session::flash('success', $isPublic ? 'Tema publicado correctamente.' : 'Tema marcado como privado.');
+        } catch (RuntimeException $exception) {
+            Session::flash('error', $exception->getMessage());
+        }
+
+        return Response::redirect('/maintainers/tipos-tema-sesion');
     }
 
     public function activate(Request $request): Response

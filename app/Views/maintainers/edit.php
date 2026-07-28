@@ -63,6 +63,23 @@ require __DIR__ . '/_menu.php';
                         data-subtype-id="<?= View::escape((string) $subtype->id) ?>"
                     >
                         <?= View::escape($subtype->name) ?>
+                        <span class="tag tone-<?= $subtype->relationIsPublic ? 'blue' : 'green' ?>">
+                            <?= $subtype->relationIsPublic ? 'General' : 'Privada' ?>
+                        </span>
+                        <?php if ($subtype->relationCreatedByUserName): ?>
+                            <small>Creada por <?= View::escape($subtype->relationCreatedByUserName) ?></small>
+                        <?php endif; ?>
+                        <?php if ($subtype->relationIsPublic): ?>
+                            <a
+                                class="action-link ghost"
+                                href="/maintainers/tipos-tema-sesion/<?= View::escape((string) $item->id) ?>/subtipos/<?= View::escape((string) $subtype->relationId) ?>/privatizar"
+                            >Hacer privada</a>
+                        <?php else: ?>
+                            <a
+                                class="action-link ghost"
+                                href="/maintainers/tipos-tema-sesion/<?= View::escape((string) $item->id) ?>/subtipos/<?= View::escape((string) $subtype->relationId) ?>/publicar"
+                            >Publicar</a>
+                        <?php endif; ?>
                         <button
                             type="button"
                             class="chip-remove"
