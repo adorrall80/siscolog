@@ -89,8 +89,8 @@ final class PatientFamilyNodePositionRepository
             'patient_id' => $patientId,
             'created_by_user_id' => $createdByUserId,
             'node_key' => $nodeKey,
-            'pos_x' => max(4, min(96, $x)),
-            'pos_y' => max(8, min(92, $y)),
+            'pos_x' => max(1.5, min(98.5, $x)),
+            'pos_y' => max(2.5, min(97.5, $y)),
         ]);
     }
 }

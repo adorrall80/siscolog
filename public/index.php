@@ -92,7 +92,9 @@ $router->get('/patients/{id}/instrumentos/{resultId}/desactivar', [PsychometricC
 $router->get('/patients/{id}/reporte', [ReportController::class, 'show']);
 $router->get('/patients/{id}/reporte/exportar', [ReportController::class, 'export']);
 $router->get('/patients/{id}/vinculos', [PatientFamilyRelationshipController::class, 'index']);
+$router->get('/patients/{id}/vinculos/pdf', [PatientFamilyRelationshipController::class, 'pdf']);
 $router->post('/patients/{id}/family-people', [PatientFamilyRelationshipController::class, 'storePerson']);
+$router->post('/patients/{id}/family-people/{personId}/desactivar', [PatientFamilyRelationshipController::class, 'deactivatePerson']);
 $router->post('/patients/{id}/family-relationships', [PatientFamilyRelationshipController::class, 'store']);
 $router->post('/patients/{id}/family-node-position', [PatientFamilyRelationshipController::class, 'position']);
 $router->post('/patients/{id}/family-relationships/{relationshipId}/desactivar', [PatientFamilyRelationshipController::class, 'deactivate']);

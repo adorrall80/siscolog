@@ -766,6 +766,8 @@
             const setupMapSelection = function (map) {
                 const form = document.querySelector('[data-family-relation-form]');
                 const relationshipCounter = document.querySelector('[data-family-relationship-count]');
+                const fitButton = document.querySelector('[data-family-fit]');
+                const actualSizeButton = document.querySelector('[data-family-actual-size]');
 
                 if (!form) {
                     return;
@@ -783,6 +785,8 @@
                 const previewFrom = form.querySelector('[data-family-preview-from]');
                 const previewRelation = form.querySelector('[data-family-preview-relation]');
                 const previewTo = form.querySelector('[data-family-preview-to]');
+                const previewDirection = form.querySelector('[data-family-preview-direction]');
+                const directionInputs = Array.from(form.querySelectorAll('[data-family-direction]'));
                 const replaceConfirmedInput = form.querySelector('[data-family-replace-confirmed]');
                 const replaceIdInput = form.querySelector('[data-family-replace-id]');
                 const replaceWarning = form.querySelector('[data-family-replace-warning]');
@@ -791,10 +795,54 @@
                 const confirmReplace = form.querySelector('[data-family-confirm-replace]');
                 const cancelReplace = form.querySelector('[data-family-cancel-replace]');
                 const nodes = Array.from(map.querySelectorAll('[data-family-node]'));
-                const existingRelations = Array.from(map.querySelectorAll('[data-family-relation]'));
                 let fromKey = '';
                 let toKey = '';
                 let confirmedReplaceSignature = '';
+
+                const showActualSize = function () {
+                    map.classList.remove('is-fit');
+                    map.style.removeProperty('--family-map-scale');
+                    map.style.removeProperty('--family-map-fit-x');
+                    map.style.removeProperty('--family-map-fit-y');
+                    drawMap(map);
+                };
+
+                const showAll = function () {
+                    showActualSize();
+                    const canvas = map.querySelector('.family-node-canvas');
+                    const content = map.querySelector('[data-family-map-content]');
+
+                    if (!canvas || !content || !nodes.length) {
+                        return;
+                    }
+
+                    const availableWidth = Math.max(1, map.clientWidth - 32);
+                    const availableHeight = Math.max(1, map.clientHeight - 32);
+                    const margin = 55;
+                    const left = Math.min.apply(null, nodes.map(function (node) {
+                        return node.offsetLeft - (node.offsetWidth / 2);
+                    })) - margin;
+                    const right = Math.max.apply(null, nodes.map(function (node) {
+                        return node.offsetLeft + (node.offsetWidth / 2);
+                    })) + margin;
+                    const top = Math.min.apply(null, nodes.map(function (node) {
+                        return node.offsetTop - (node.offsetHeight / 2);
+                    })) - margin;
+                    const bottom = Math.max.apply(null, nodes.map(function (node) {
+                        return node.offsetTop + (node.offsetHeight / 2);
+                    })) + margin;
+                    const occupiedWidth = Math.max(1, right - left);
+                    const occupiedHeight = Math.max(1, bottom - top);
+                    const scale = Math.min(1.35, availableWidth / occupiedWidth, availableHeight / occupiedHeight);
+                    const x = 16 + ((availableWidth - (occupiedWidth * scale)) / 2) - (left * scale);
+                    const y = 16 + ((availableHeight - (occupiedHeight * scale)) / 2) - (top * scale);
+
+                    map.style.setProperty('--family-map-scale', String(scale));
+                    map.style.setProperty('--family-map-fit-x', x + 'px');
+                    map.style.setProperty('--family-map-fit-y', y + 'px');
+                    map.classList.add('is-fit');
+                    map.scrollTo(0, 0);
+                };
 
                 const resetNodeStates = function () {
                     nodes.forEach(function (node) {
@@ -854,6 +902,14 @@
                     return relationInput ? relationInput.value.trim() : '';
                 };
 
+                const isBidirectional = function () {
+                    const selected = directionInputs.find(function (input) {
+                        return input.checked;
+                    });
+
+                    return Boolean(selected && selected.value === '1');
+                };
+
                 const relationTextFor = function (relation) {
                     return [
                         relation.getAttribute('data-from-label') || '',
@@ -867,19 +923,23 @@
                         return null;
                     }
 
-                    return existingRelations.find(function (relation) {
+                    const currentRelations = Array.from(map.querySelectorAll('[data-family-relation]'));
+
+                    return currentRelations.find(function (relation) {
                         return relation.getAttribute('data-from') === fromKey
                             && relation.getAttribute('data-to') === toKey;
                     }) || null;
                 };
 
                 const replacementSignature = function (relation) {
-                    return relation ? (relation.getAttribute('data-id') || '') + '|' + relationText() : '';
+                    return relation
+                        ? (relation.getAttribute('data-id') || '') + '|' + relationText() + '|' + (isBidirectional() ? '1' : '0')
+                        : '';
                 };
 
                 const prepareReplacementModal = function (existing) {
-                    const fromText = selectedLabel(fromKey) || 'seleccione origen';
-                    const toText = selectedLabel(toKey) || 'seleccione destino';
+                    const fromText = selectedLabel(fromKey) || 'seleccione Persona A';
+                    const toText = selectedLabel(toKey) || 'seleccione Persona B';
 
                     if (currentRelation && existing) {
                         currentRelation.textContent = relationTextFor(existing);
@@ -937,12 +997,13 @@
                     const fromText = selectedLabel(fromKey);
                     const toText = selectedLabel(toKey);
                     const draftRelation = relationText();
-                    const previewText = 'Desde ' + (fromText || 'seleccione origen')
-                        + ' | ' + (draftRelation || 'escriba relacion')
-                        + ' | Hacia ' + (toText || 'seleccione destino');
+                    const directionSymbol = isBidirectional() ? ' ↔ ' : ' → ';
+                    const previewText = (fromText || 'Persona A')
+                        + directionSymbol + (draftRelation || 'relacion')
+                        + directionSymbol + (toText || 'Persona B');
 
                     if (previewFrom) {
-                        previewFrom.textContent = fromText || 'seleccione origen';
+                        previewFrom.textContent = fromText || 'seleccione Persona A';
                     }
 
                     if (previewRelation) {
@@ -950,12 +1011,30 @@
                     }
 
                     if (previewTo) {
-                        previewTo.textContent = toText || 'seleccione destino';
+                        previewTo.textContent = toText || 'seleccione Persona B';
+                    }
+
+                    if (previewDirection) {
+                        previewDirection.textContent = isBidirectional()
+                            ? '\u25C0\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25B6'
+                            : '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25B6';
                     }
 
                     if (preview) {
                         preview.title = previewText;
                         preview.classList.toggle('is-ready', Boolean(fromText && toText && draftRelation));
+                    }
+
+                    if (help) {
+                        if (!fromText) {
+                            help.textContent = 'Selecciona la Persona A en el mapa.';
+                        } else if (!toText) {
+                            help.textContent = 'Persona A seleccionada. Ahora selecciona la Persona B.';
+                        } else if (!draftRelation) {
+                            help.textContent = 'Escribe la relación entre Persona A y Persona B.';
+                        } else {
+                            help.textContent = 'Todo listo. Presiona Unir participantes para guardar la relación.';
+                        }
                     }
 
                     updateReplacementState();
@@ -973,6 +1052,14 @@
                     if (toLabel) {
                         toLabel.textContent = 'clic en otra persona';
                     }
+
+                    if (relationInput) {
+                        relationInput.value = '';
+                    }
+
+                    directionInputs.forEach(function (input) {
+                        input.checked = input.value === '0';
+                    });
 
                     if (help) {
                         help.textContent = 'Haz clic en dos personas del diagrama para armar la flecha. No necesitas usar listados.';
@@ -1001,7 +1088,7 @@
                             toLabel.textContent = 'clic en otra persona';
                         }
                         if (help) {
-                            help.textContent = 'Origen seleccionado. Ahora haz clic en la persona destino.';
+                            help.textContent = 'Persona A seleccionada. Ahora haz clic en la Persona B.';
                         }
                         syncState();
                         updatePreview();
@@ -1010,7 +1097,7 @@
 
                     if (key === fromKey) {
                         if (help) {
-                            help.textContent = 'El destino debe ser otra persona. Elige un nodo distinto.';
+                            help.textContent = 'La Persona B debe ser distinta de la Persona A.';
                         }
                         return;
                     }
@@ -1090,6 +1177,7 @@
                             relation.remove();
                             drawMap(map);
                             updateRelationshipCounter();
+                            updateReplacementState();
 
                             if (help) {
                                 help.textContent = 'Vinculo quitado del diagrama.';
@@ -1117,6 +1205,10 @@
                     let startY = 0;
 
                     node.addEventListener('pointerdown', function (event) {
+                        if (event.target.closest('.family-node-remove')) {
+                            return;
+                        }
+
                         dragging = true;
                         moved = false;
                         startX = event.clientX;
@@ -1129,7 +1221,8 @@
                             return;
                         }
 
-                        const mapRect = map.getBoundingClientRect();
+                        const canvas = map.querySelector('.family-node-canvas');
+                        const canvasRect = canvas ? canvas.getBoundingClientRect() : map.getBoundingClientRect();
                         const dx = Math.abs(event.clientX - startX);
                         const dy = Math.abs(event.clientY - startY);
                         moved = moved || dx > 4 || dy > 4;
@@ -1138,8 +1231,10 @@
                             return;
                         }
 
-                        const x = Math.max(7, Math.min(93, ((event.clientX - mapRect.left) / mapRect.width) * 100));
-                        const y = Math.max(11, Math.min(89, ((event.clientY - mapRect.top) / mapRect.height) * 100));
+                        const horizontalMargin = Math.max(1.5, ((node.offsetWidth / 2 + 6) / canvas.offsetWidth) * 100);
+                        const verticalMargin = Math.max(2.5, ((node.offsetHeight / 2 + 6) / canvas.offsetHeight) * 100);
+                        const x = Math.max(horizontalMargin, Math.min(100 - horizontalMargin, ((event.clientX - canvasRect.left) / canvasRect.width) * 100));
+                        const y = Math.max(verticalMargin, Math.min(100 - verticalMargin, ((event.clientY - canvasRect.top) / canvasRect.height) * 100));
                         moveNode(node, Math.round(x * 100) / 100, Math.round(y * 100) / 100);
                     });
 
@@ -1163,7 +1258,11 @@
                         }
                     });
 
-                    node.addEventListener('click', function () {
+                    node.addEventListener('click', function (event) {
+                        if (event.target.closest('.family-node-remove')) {
+                            return;
+                        }
+
                         if (moved) {
                             moved = false;
                             return;
@@ -1231,6 +1330,22 @@
                     });
                 }
 
+                if (fitButton) {
+                    fitButton.addEventListener('click', showAll);
+                }
+
+                if (actualSizeButton) {
+                    actualSizeButton.addEventListener('click', showActualSize);
+                }
+
+                directionInputs.forEach(function (input) {
+                    input.addEventListener('change', function () {
+                        confirmedReplaceSignature = '';
+                        hideReplacementModal();
+                        updatePreview();
+                    });
+                });
+
                 if (confirmReplace) {
                     confirmReplace.addEventListener('click', function () {
                         const existing = findExistingRelation();
@@ -1263,7 +1378,7 @@
                         hideReplacementModal();
 
                         if (help) {
-                            help.textContent = 'Reemplazo cancelado. Puedes cambiar origen, destino o relacion.';
+                            help.textContent = 'Reemplazo cancelado. Puedes cambiar Persona A, Persona B o la relacion.';
                         }
 
                         updatePreview();
@@ -1287,7 +1402,7 @@
 
                 svg.innerHTML = ''
                     + '<defs>'
-                    + '<marker id="family-arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">'
+                    + '<marker id="family-arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto-start-reverse" markerUnits="strokeWidth">'
                     + '<path d="M0,0 L0,6 L9,3 z" fill="#1c5da1"></path>'
                     + '</marker>'
                     + '</defs>';
@@ -1302,14 +1417,26 @@
                         return;
                     }
 
-                    const fromRect = from.getBoundingClientRect();
-                    const toRect = to.getBoundingClientRect();
-                    const x1 = fromRect.left - mapRect.left + fromRect.width / 2;
-                    const y1 = fromRect.top - mapRect.top + fromRect.height / 2;
-                    const x2 = toRect.left - mapRect.left + toRect.width / 2;
-                    const y2 = toRect.top - mapRect.top + toRect.height / 2;
-                    const mx = (x1 + x2) / 2;
-                    const my = (y1 + y2) / 2;
+                    const canvas = map.querySelector('.family-node-canvas');
+                    const canvasOffsetX = canvas ? canvas.offsetLeft : 0;
+                    const canvasOffsetY = canvas ? canvas.offsetTop : 0;
+                    const fromCenterX = canvasOffsetX + from.offsetLeft;
+                    const fromCenterY = canvasOffsetY + from.offsetTop;
+                    const toCenterX = canvasOffsetX + to.offsetLeft;
+                    const toCenterY = canvasOffsetY + to.offsetTop;
+                    const deltaX = toCenterX - fromCenterX;
+                    const deltaY = toCenterY - fromCenterY;
+                    const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+                    const unitX = deltaX / distance;
+                    const unitY = deltaY / distance;
+                    const fromRadius = Math.min(from.offsetWidth, from.offsetHeight) / 2 + 3;
+                    const toRadius = Math.min(to.offsetWidth, to.offsetHeight) / 2 + 7;
+                    const x1 = fromCenterX + unitX * fromRadius;
+                    const y1 = fromCenterY + unitY * fromRadius;
+                    const x2 = toCenterX - unitX * toRadius;
+                    const y2 = toCenterY - unitY * toRadius;
+                    const mx = (fromCenterX + toCenterX) / 2;
+                    const my = (fromCenterY + toCenterY) / 2;
 
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', String(x1));
@@ -1320,6 +1447,9 @@
                     line.setAttribute('stroke-width', '2');
                     line.setAttribute('stroke-linecap', 'round');
                     line.setAttribute('marker-end', 'url(#family-arrow)');
+                    if (relation.getAttribute('data-bidirectional') === '1') {
+                        line.setAttribute('marker-start', 'url(#family-arrow)');
+                    }
                     svg.appendChild(line);
 
                     const badge = document.createElement('span');
@@ -1351,7 +1481,8 @@
                         badge.appendChild(remove);
                     }
 
-                    map.appendChild(badge);
+                    const content = map.querySelector('[data-family-map-content]');
+                    (content || map).appendChild(badge);
                 });
             };
 
@@ -1362,6 +1493,284 @@
             window.addEventListener('resize', function () {
                 maps.forEach(drawMap);
             });
+        })();
+
+        (function () {
+            const payload = document.querySelector('[data-linked-participants]');
+            const select = document.querySelector('[data-linked-participant-select]');
+            const addButton = document.querySelector('[data-add-linked-participant]');
+            const selectedList = document.querySelector('[data-linked-participant-selected]');
+            const hiddenContainer = document.querySelector('[data-linked-participant-hidden]');
+            const help = document.querySelector('[data-linked-participant-help]');
+            const modal = document.querySelector('[data-new-session-participant-modal]');
+            const openModalButton = document.querySelector('[data-open-new-session-participant]');
+            const closeModalButtons = document.querySelectorAll('[data-close-new-session-participant]');
+            const confirmNewButton = document.querySelector('[data-confirm-new-session-participant]');
+            const newTypeSelect = document.querySelector('[data-new-session-participant-type]');
+            const newNameInput = document.querySelector('[data-new-session-participant-name]');
+            const newParticipantError = document.querySelector('[data-new-session-participant-error]');
+            const existingParticipants = document.querySelector('[data-existing-session-participants]');
+
+            if (!payload || !select || !addButton || !selectedList || !hiddenContainer) {
+                return;
+            }
+
+            let people = [];
+            let participantIndex = 0;
+            let temporaryParticipantIndex = 0;
+
+            try {
+                people = JSON.parse(payload.textContent || '[]');
+            } catch (error) {
+                people = [];
+            }
+
+            document.querySelectorAll('[data-existing-session-participant][data-linked-participant-id]').forEach(function (chip) {
+                const option = select.querySelector('option[value="' + chip.getAttribute('data-linked-participant-id') + '"]');
+                if (option) {
+                    option.disabled = true;
+                }
+            });
+
+            const personById = function (id) {
+                return people.find(function (person) {
+                    return String(person.id) === String(id);
+                }) || null;
+            };
+
+            const addParticipant = function (person) {
+                const participantKey = person.key || ('person-' + String(person.id));
+                const wrapper = document.createElement('div');
+                wrapper.setAttribute('data-linked-participant-key', participantKey);
+                if (person.id) {
+                    wrapper.setAttribute('data-linked-participant-id', String(person.id));
+                }
+
+                const fields = {
+                    type: person.type,
+                    text: person.name,
+                    origin: 'O',
+                    person_id: person.id || ''
+                };
+
+                Object.keys(fields).forEach(function (field) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'participant_rows[linked_' + participantIndex + '][' + field + ']';
+                    input.value = fields[field];
+                    wrapper.appendChild(input);
+                });
+
+                hiddenContainer.appendChild(wrapper);
+                participantIndex += 1;
+
+                const empty = selectedList.querySelector('[data-empty-linked-participant]');
+                if (empty) {
+                    empty.remove();
+                }
+
+                const chip = document.createElement('span');
+                chip.className = 'subtype-chip is-associated';
+                chip.setAttribute('data-linked-participant-chip', '');
+                chip.setAttribute('data-linked-participant-key', participantKey);
+                if (person.id) {
+                    chip.setAttribute('data-linked-participant-id', String(person.id));
+                }
+                chip.textContent = person.label + ' ';
+
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'chip-remove';
+                remove.setAttribute('aria-label', 'Quitar participante ' + person.label);
+                remove.textContent = 'x';
+                chip.appendChild(remove);
+                selectedList.appendChild(chip);
+
+                const option = person.id
+                    ? select.querySelector('option[value="' + String(person.id) + '"]')
+                    : null;
+                if (option) {
+                    option.disabled = true;
+                }
+            };
+
+            addButton.addEventListener('click', function () {
+                const person = personById(select.value);
+
+                if (!person) {
+                    if (help) {
+                        help.textContent = 'Selecciona una persona vinculada antes de agregar.';
+                    }
+                    return;
+                }
+
+                if (document.querySelector('[data-linked-participant-id="' + String(person.id) + '"]')) {
+                    if (help) {
+                        help.textContent = 'Esa persona ya está agregada a la sesión.';
+                    }
+                    return;
+                }
+
+                addParticipant(person);
+                select.value = '';
+
+                if (help) {
+                    help.textContent = 'Participante agregado. Puedes seleccionar otra persona vinculada.';
+                }
+            });
+
+            selectedList.addEventListener('click', function (event) {
+                const button = event.target.closest('.chip-remove');
+
+                if (!button) {
+                    return;
+                }
+
+                const chip = button.closest('[data-linked-participant-chip]');
+                const participantKey = chip ? chip.getAttribute('data-linked-participant-key') : '';
+                const personId = chip ? chip.getAttribute('data-linked-participant-id') : '';
+                const hidden = hiddenContainer.querySelector('[data-linked-participant-key="' + participantKey + '"]');
+                const option = personId ? select.querySelector('option[value="' + personId + '"]') : null;
+
+                if (chip) {
+                    chip.remove();
+                }
+                if (hidden) {
+                    hidden.remove();
+                }
+                if (option) {
+                    option.disabled = false;
+                }
+
+                if (!selectedList.querySelector('[data-linked-participant-chip]')) {
+                    const empty = document.createElement('span');
+                    empty.className = 'tag tone-gray';
+                    empty.setAttribute('data-empty-linked-participant', '');
+                    empty.textContent = 'Sin participantes adicionales';
+                    selectedList.appendChild(empty);
+                }
+            });
+
+            if (existingParticipants) {
+                existingParticipants.addEventListener('click', function (event) {
+                    const button = event.target.closest('.chip-remove');
+                    const chip = button ? button.closest('[data-existing-session-participant]') : null;
+
+                    if (!chip) {
+                        return;
+                    }
+
+                    const personId = chip.getAttribute('data-linked-participant-id');
+                    const option = personId ? select.querySelector('option[value="' + personId + '"]') : null;
+                    chip.remove();
+
+                    if (option) {
+                        option.disabled = false;
+                    }
+
+                    if (!existingParticipants.querySelector('[data-existing-session-participant]')) {
+                        const empty = document.createElement('span');
+                        empty.className = 'tag tone-gray';
+                        empty.textContent = 'Sin participantes registrados';
+                        existingParticipants.appendChild(empty);
+                    }
+                });
+            }
+
+            const normalizeParticipantValue = function (value) {
+                return String(value || '').trim().toLocaleLowerCase('es');
+            };
+
+            const closeNewParticipantModal = function () {
+                if (!modal) {
+                    return;
+                }
+                modal.hidden = true;
+                document.body.classList.remove('modal-open');
+            };
+
+            const openNewParticipantModal = function () {
+                if (!modal || !newTypeSelect || !newNameInput) {
+                    return;
+                }
+                newTypeSelect.value = '';
+                newNameInput.value = '';
+                if (newParticipantError) {
+                    newParticipantError.textContent = modal.getAttribute('data-save-message')
+                        || 'La persona se guardará definitivamente al guardar.';
+                }
+                modal.hidden = false;
+                document.body.classList.add('modal-open');
+                newTypeSelect.focus();
+            };
+
+            if (openModalButton) {
+                openModalButton.addEventListener('click', openNewParticipantModal);
+            }
+
+            closeModalButtons.forEach(function (button) {
+                button.addEventListener('click', closeNewParticipantModal);
+            });
+
+            if (modal) {
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        closeNewParticipantModal();
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && modal && !modal.hidden) {
+                    closeNewParticipantModal();
+                }
+            });
+
+            if (confirmNewButton && newTypeSelect && newNameInput) {
+                confirmNewButton.addEventListener('click', function () {
+                    const type = newTypeSelect.value.trim();
+                    const name = newNameInput.value.trim();
+                    const typeOption = newTypeSelect.options[newTypeSelect.selectedIndex];
+                    const typeLabel = typeOption ? typeOption.textContent.trim() : type;
+                    const duplicate = people.some(function (person) {
+                        return normalizeParticipantValue(person.type) === normalizeParticipantValue(type)
+                            && normalizeParticipantValue(person.name) === normalizeParticipantValue(name);
+                    }) || Array.from(document.querySelectorAll('input[name^="participant_rows["][name$="[text]"]')).some(function (input) {
+                        const wrapper = input.parentElement;
+                        const typeInput = wrapper ? wrapper.querySelector('input[name$="[type]"]') : null;
+                        return typeInput
+                            && normalizeParticipantValue(typeInput.value) === normalizeParticipantValue(type)
+                            && normalizeParticipantValue(input.value) === normalizeParticipantValue(name);
+                    });
+
+                    if (type === '' || name === '') {
+                        if (newParticipantError) {
+                            newParticipantError.textContent = 'Selecciona el tipo de persona y escribe su nombre.';
+                        }
+                        return;
+                    }
+
+                    if (duplicate) {
+                        if (newParticipantError) {
+                            newParticipantError.textContent = 'Esta persona ya existe o ya fue agregada a la sesión.';
+                        }
+                        return;
+                    }
+
+                    temporaryParticipantIndex += 1;
+                    addParticipant({
+                        id: null,
+                        key: 'new-person-' + temporaryParticipantIndex,
+                        type: type,
+                        name: name,
+                        label: typeLabel + ' — ' + name
+                    });
+                    if (help) {
+                        help.textContent = name + ' se agregará, vinculará y aparecerá en el mapa cuando guardes la sesión.';
+                    }
+                    closeNewParticipantModal();
+                });
+            }
         })();
 
         (function () {

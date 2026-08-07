@@ -38,6 +38,7 @@ final class PatientFamilyRelationshipService
                 'label' => $relationship->relationshipLabel,
                 'to' => $relationship->toNodeKey,
                 'to_label' => $relationship->toNodeLabel,
+                'is_bidirectional' => $relationship->isBidirectional,
             ],
             $this->relationships->byPatient((int) $patient->id, $userId > 0 ? $userId : null, $includeAll)
         );
@@ -81,6 +82,7 @@ final class PatientFamilyRelationshipService
             'relationship_label' => $relationshipLabel,
             'to_node_key' => $toKey,
             'to_node_label' => $nodes[$toKey]['label'],
+            'is_bidirectional' => (string) ($data['is_bidirectional'] ?? '0') === '1',
         ];
         $existing = $this->relationships->activeBetween((int) $patient->id, $fromKey, $toKey, $payload['created_by_user_id']);
 
@@ -134,6 +136,19 @@ final class PatientFamilyRelationshipService
         $this->relationships->setActive($patientId, $relationshipId, false, $userId > 0 ? $userId : null, $includeAll);
     }
 
+    public function deactivateForPerson(int $patientId, int $personId, ?array $user = null): void
+    {
+        $includeAll = $this->isGlobalRole($user);
+        $userId = (int) ($user['id'] ?? 0);
+
+        $this->relationships->deactivateForNode(
+            $patientId,
+            'person:' . $personId,
+            $userId > 0 ? $userId : null,
+            $includeAll
+        );
+    }
+
     /**
      * @param AssociatedPerson[] $associatedPeople
      * @return array<string, array{key: string, label: string, role: string, kind: string}>
@@ -158,6 +173,10 @@ final class PatientFamilyRelationshipService
                 'role' => $this->labelFromCode($person->participantType),
                 'kind' => 'participant',
                 'participation_status' => $person->hasParticipated ? 'SP' : 'NP',
+                'can_remove' => $includeAll || (
+                    $createdByUserId !== null
+                    && $person->createdByUserId === $createdByUserId
+                ),
             ];
         }
 

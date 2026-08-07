@@ -12,6 +12,7 @@ return [
         relationship_label VARCHAR(120) NOT NULL,
         to_node_key VARCHAR(120) NOT NULL,
         to_node_label VARCHAR(220) NOT NULL,
+        is_bidirectional TINYINT(1) NOT NULL DEFAULT 0,
         is_active TINYINT(1) NOT NULL DEFAULT 1,
         created_at TIMESTAMP NULL,
         updated_at TIMESTAMP NULL,

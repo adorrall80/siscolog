@@ -13,6 +13,34 @@ $currentTopics ??= [];
 $currentParticipants ??= [];
 $topicSubtypePayload = [];
 $topicSubtypeScopePayload = [];
+$participantTypeLabels = [];
+$newParticipantTypes = [];
+$patientIsParticipant = false;
+
+foreach ($participantTypes as $participantType) {
+    $participantTypeLabels[$participantType->code] = $participantType->name;
+    if ($participantType->code !== 'paciente') {
+        $newParticipantTypes[] = $participantType;
+    }
+}
+
+foreach ($currentParticipants as $participant) {
+    if (($participant['type'] ?? '') === 'paciente') {
+        $patientIsParticipant = true;
+        break;
+    }
+}
+
+$linkedParticipantPayload = array_map(
+    fn ($person): array => [
+        'id' => (int) $person->id,
+        'type' => $person->participantType,
+        'name' => $person->displayName,
+        'label' => ($participantTypeLabels[$person->participantType] ?? $person->participantType)
+            . ' — ' . $person->displayName,
+    ],
+    $associatedPeople
+);
 
 foreach ($topicTypes as $topicType) {
     $topicKey = strtolower($topicType->name);
@@ -57,11 +85,7 @@ ob_start();
     </div>
 
     <form method="post" action="/citas/<?= View::escape((string) $appointment->id) ?>/actualizar" class="form-grid">
-        <datalist id="associated-people-suggestions">
-            <?php foreach ($associatedPeople as $person): ?>
-                <option value="<?= View::escape($person->displayName) ?>"></option>
-            <?php endforeach; ?>
-        </datalist>
+        <script type="application/json" data-linked-participants><?= json_encode($linkedParticipantPayload, JSON_UNESCAPED_UNICODE) ?></script>
         <datalist id="session-topic-types">
             <?php foreach ($topicTypes as $topicType): ?>
                 <option
@@ -120,11 +144,22 @@ ob_start();
             <div class="checkbox-group">
                 <span>Participantes actuales</span>
                 <div class="subtype-chip-list" data-existing-session-participants>
-                    <?php if ($currentParticipants === []): ?>
-                        <span class="tag tone-gray">Sin participantes registrados</span>
+                    <?php
+                    $currentAdditionalParticipants = array_values(array_filter(
+                        $currentParticipants,
+                        fn (array $participant): bool => ($participant['type'] ?? '') !== 'paciente'
+                    ));
+                    ?>
+                    <?php if ($currentAdditionalParticipants === []): ?>
+                        <span class="tag tone-gray">Sin participantes adicionales registrados</span>
                     <?php else: ?>
-                        <?php foreach ($currentParticipants as $index => $participant): ?>
-                            <span class="subtype-chip is-associated" data-existing-session-participant data-participant-key="<?= View::escape(strtolower($participant['text'])) ?>">
+                        <?php foreach ($currentAdditionalParticipants as $index => $participant): ?>
+                            <span
+                                class="subtype-chip is-associated"
+                                data-existing-session-participant
+                                data-participant-key="<?= View::escape(strtolower($participant['text'])) ?>"
+                                <?= !empty($participant['person_id']) ? 'data-linked-participant-id="' . View::escape((string) $participant['person_id']) . '"' : '' ?>
+                            >
                                 <?= View::escape($participant['text']) ?>
                                 <input type="hidden" name="participant_rows[<?= View::escape((string) $index) ?>][type]" value="<?= View::escape($participant['type']) ?>">
                                 <input type="hidden" name="participant_rows[<?= View::escape((string) $index) ?>][text]" value="<?= View::escape($participant['text']) ?>">
@@ -138,40 +173,42 @@ ob_start();
 
                 <div class="participant-grid">
                     <div class="participant-card">
-                        <label>
-                            Tipo de participante
-                            <select data-session-participant-type>
-                                <option value="">Seleccione participante</option>
-                                <?php foreach ($participantTypes as $participantType): ?>
-                                    <option value="<?= View::escape($participantType->code) ?>">
-                                        <?= View::escape($participantType->name) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
+                        <label class="check-card">
+                            <input
+                                type="checkbox"
+                                name="participants[paciente][selected]"
+                                value="1"
+                                <?= $patientIsParticipant ? 'checked' : '' ?>
+                            >
+                            <span>Paciente</span>
                         </label>
                     </div>
 
                     <div class="participant-card">
                         <label>
-                            Nombre o descripcion
-                            <input
-                                data-session-participant-text
-                                list="associated-people-suggestions"
-                                placeholder="Ej: Juan Perez, abuelo materno"
-                            >
+                            Participante vinculado
+                            <select data-linked-participant-select>
+                                <option value="">Seleccione una persona vinculada</option>
+                                <?php foreach ($linkedParticipantPayload as $linkedParticipant): ?>
+                                    <option value="<?= View::escape((string) $linkedParticipant['id']) ?>">
+                                        <?= View::escape($linkedParticipant['label']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </label>
+                        <button class="button small secondary" type="button" data-add-linked-participant>Agregar participante</button>
                     </div>
                 </div>
-                <p class="form-help">Si el tema o subtipo no existe, puedes escribirlo. La nueva relación quedará guardada como privada para tu usuario.</p>
-
-                <div class="actions-row">
-                    <button class="button small secondary" type="button" data-add-session-participant>Agregar participante</button>
+                <div class="subtype-chip-list" data-linked-participant-selected>
+                    <span class="tag tone-gray" data-empty-linked-participant>Sin participantes adicionales</span>
                 </div>
-                <div class="subtype-chip-list" data-session-participant-selected>
-                    <span class="tag tone-gray" data-empty-session-participant>Sin participantes nuevos agregados</span>
+                <div data-linked-participant-hidden></div>
+                <small data-linked-participant-help>
+                    Solo se muestran personas vinculadas a este paciente. Si falta alguien, puedes agregarlo aquí sin salir de la edición.
+                </small>
+                <div class="form-actions compact">
+                    <button class="button small secondary" type="button" data-open-new-session-participant>Agregar nueva persona</button>
                 </div>
-                <div data-session-participant-hidden></div>
-                <small data-session-participant-help>Agrega uno o varios participantes antes de guardar. La lista final reemplazara los participantes activos de esta cita.</small>
             </div>
 
             <div class="checkbox-group">
@@ -227,6 +264,39 @@ ob_start();
                 <small data-session-topic-help>Los nuevos temas se suman a los actuales. Si no existe el tipo o subtipo, se creara y quedara relacionado.</small>
             </div>
         </fieldset>
+
+        <div class="modal-backdrop" data-new-session-participant-modal data-save-message="La persona se guardará definitivamente cuando guardes los cambios." hidden>
+            <section class="modal-panel session-participant-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-new-session-participant-title">
+                <div class="modal-head">
+                    <div>
+                        <p class="eyebrow">Participante de la sesión</p>
+                        <h2 id="edit-new-session-participant-title">Agregar nueva persona</h2>
+                    </div>
+                    <button class="icon-button" type="button" data-close-new-session-participant aria-label="Cerrar">×</button>
+                </div>
+                <p>Esta persona participará en la sesión y quedará vinculada al paciente, disponible para futuras sesiones y para el mapa.</p>
+                <div class="form-grid two-columns">
+                    <label>
+                        Tipo de persona
+                        <select data-new-session-participant-type>
+                            <option value="">Seleccione tipo de persona</option>
+                            <?php foreach ($newParticipantTypes as $participantType): ?>
+                                <option value="<?= View::escape($participantType->code) ?>"><?= View::escape($participantType->name) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>
+                        Nombre visible
+                        <input type="text" maxlength="150" placeholder="Ej: Tío Juan, Amiga Carla, Abuelo Luis" data-new-session-participant-name>
+                    </label>
+                </div>
+                <small data-new-session-participant-error>La persona se guardará definitivamente cuando guardes los cambios.</small>
+                <div class="form-actions">
+                    <button class="button secondary" type="button" data-close-new-session-participant>Cancelar</button>
+                    <button class="button" type="button" data-confirm-new-session-participant>Agregar participante</button>
+                </div>
+            </section>
+        </div>
 
         <fieldset class="single-column">
             <legend>Nota clinica estructurada</legend>

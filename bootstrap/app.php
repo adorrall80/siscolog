@@ -24,5 +24,10 @@ spl_autoload_register(function (string $class): void {
 Core\Env::load(dirname(__DIR__) . '/.env');
 
 if (session_status() === PHP_SESSION_NONE) {
+    $sessionPath = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'siscolog_sessions';
+    if (!is_dir($sessionPath)) {
+        mkdir($sessionPath, 0775, true);
+    }
+    session_save_path($sessionPath);
     session_start();
 }

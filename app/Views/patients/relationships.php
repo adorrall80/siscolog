@@ -59,6 +59,9 @@ ob_start();
     <span class="toolbar-code"><?= View::escape($patient->code) ?></span>
     <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>">Volver a ficha</a>
     <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>/sessions/create">Nueva sesion</a>
+    <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>/vinculos/pdf">
+        Descargar PDF del mapa
+    </a>
 </section>
 
 <section class="panel record-card" id="family-map">
@@ -103,8 +106,8 @@ ob_start();
         </article>
         <article>
             <span>2</span>
-            <strong>Elegir origen y destino</strong>
-            <small>Haz clic en dos personas: primero desde, luego hacia.</small>
+            <strong>Elegir Persona A y Persona B</strong>
+            <small>Haz clic primero en la Persona A y después en la Persona B.</small>
         </article>
         <article>
             <span>3</span>
@@ -113,7 +116,12 @@ ob_start();
         </article>
     </div>
 
-    <form class="family-person-form" method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/family-people">
+    <form
+        class="family-person-form"
+        id="new-associated-person"
+        method="post"
+        action="/patients/<?= View::escape((string) $patient->id) ?>/family-people"
+    >
         <label>
             Tipo de persona
             <select name="participant_type" required>
@@ -146,8 +154,8 @@ ob_start();
         <input type="hidden" name="replace_relationship_id" value="" data-family-replace-id>
 
         <div class="family-pick-state">
-            <span>1. Desde: <strong data-family-from-label>clic en una persona</strong></span>
-            <span>2. Hacia: <strong data-family-to-label>clic en otra persona</strong></span>
+            <span>1. Persona A: <strong data-family-from-label>clic en una persona</strong></span>
+            <span>2. Persona B: <strong data-family-to-label>clic en otra persona</strong></span>
         </div>
 
         <label>
@@ -155,28 +163,46 @@ ob_start();
             <input name="relationship_label" list="family-relationship-suggestions" placeholder="Ej: Padre de, Hermano de, Vive con" required data-family-relation-input>
         </label>
 
+        <fieldset class="family-direction-options">
+            <legend>Dirección de la relación</legend>
+            <label>
+                <input type="radio" name="is_bidirectional" value="0" checked data-family-direction>
+                <span>
+                    <strong>Una dirección</strong>
+                    <small>Persona A → Persona B</small>
+                </span>
+            </label>
+            <label>
+                <input type="radio" name="is_bidirectional" value="1" data-family-direction>
+                <span>
+                    <strong>Relación mutua</strong>
+                    <small>Persona A ↔ Persona B</small>
+                </span>
+            </label>
+        </fieldset>
+
         <button class="button small" type="submit" data-family-save disabled>Unir participantes</button>
         <button class="button small secondary" type="button" data-family-clear>Limpiar seleccion</button>
         <div class="family-relation-preview" data-family-relation-preview title="Selecciona dos personas y escribe la relacion">
-            <span>
-                <small>Desde</small>
-                <strong data-family-preview-from>seleccione origen</strong>
-            </span>
-            <span>
-                <small>Relacion</small>
+            <div class="family-preview-person is-person-a">
+                <small>Persona A</small>
+                <strong data-family-preview-from>seleccione Persona A</strong>
+            </div>
+            <div class="family-preview-connector">
                 <strong data-family-preview-relation>escriba relacion</strong>
-            </span>
-            <span>
-                <small>Hacia</small>
-                <strong data-family-preview-to>seleccione destino</strong>
-            </span>
+                <span data-family-preview-direction aria-hidden="true">&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9654;</span>
+            </div>
+            <div class="family-preview-person is-person-b">
+                <small>Persona B</small>
+                <strong data-family-preview-to>seleccione Persona B</strong>
+            </div>
         </div>
         <div class="family-replace-warning" data-family-replace-warning hidden role="dialog" aria-modal="true" aria-labelledby="family-replace-title">
             <div class="family-replace-dialog">
                 <span class="family-replace-icon" aria-hidden="true">!</span>
                 <div>
                     <strong id="family-replace-title">Ya existe una relacion entre estas personas</strong>
-                    <p>Para no llenar el mapa con flechas duplicadas, el sistema mantiene una sola relacion activa entre el mismo origen y destino.</p>
+                    <p>Para no llenar el mapa con flechas duplicadas, el sistema mantiene una sola relacion activa entre la misma Persona A y Persona B.</p>
                     <p>Actual: <span data-family-current-relation></span></p>
                     <p>Nueva: <span data-family-new-relation></span></p>
                     <div class="family-replace-actions">
@@ -198,10 +224,20 @@ ob_start();
             </div>
         </div>
     <?php else: ?>
-        <div class="family-map" data-family-map>
-            <svg class="family-map-lines" data-family-lines aria-hidden="true"></svg>
+        <div class="family-map-view-controls" aria-label="Tamaño de visualización del mapa">
+            <button class="button small secondary" type="button" data-family-fit>Ver todas</button>
+            <button class="button small secondary" type="button" data-family-actual-size>Tamaño 100%</button>
+        </div>
+        <?php if (count($familyNodes) >= 8): ?>
+            <p class="form-help family-map-scroll-help">
+                Mapa ampliado: usa las barras horizontal y vertical para ordenar a todos los participantes.
+            </p>
+        <?php endif; ?>
+        <div class="family-map <?= count($familyNodes) >= 8 ? 'is-crowded' : '' ?>" data-family-map>
+            <div class="family-map-content" data-family-map-content>
+                <svg class="family-map-lines" data-family-lines aria-hidden="true"></svg>
 
-            <div class="family-node-canvas">
+                <div class="family-node-canvas">
                 <?php foreach ($familyNodes as $node): ?>
                     <?php $roleClass = preg_replace('/[^a-z0-9]+/', '-', strtolower($node['role'])) ?: 'participante'; ?>
                     <?php $participationStatus = (string) ($node['participation_status'] ?? 'NP'); ?>
@@ -230,11 +266,20 @@ ob_start();
                             <strong title="<?= View::escape($node['label']) ?>"><?= View::escape($node['label']) ?></strong>
                             <small title="<?= View::escape($node['role']) ?>"><?= View::escape($node['role']) ?></small>
                         </div>
+                        <?php if (($node['can_remove'] ?? false) === true): ?>
+                            <form
+                                method="post"
+                                action="/patients/<?= View::escape((string) $patient->id) ?>/family-people/<?= View::escape(str_replace('person:', '', $node['key'])) ?>/desactivar"
+                                onsubmit="return confirm('¿Quitar a <?= View::escape($node['label']) ?> del mapa? Las sesiones anteriores se conservarán.');"
+                            >
+                                <button class="family-node-remove" type="submit" title="Quitar del mapa">×</button>
+                            </form>
+                        <?php endif; ?>
                     </article>
                 <?php endforeach; ?>
-            </div>
+                </div>
 
-            <div class="family-relation-data" aria-hidden="true">
+                <div class="family-relation-data" aria-hidden="true">
                 <?php foreach ($familyRelationships as $relationship): ?>
                     <span
                         data-family-relation
@@ -244,9 +289,11 @@ ob_start();
                         data-to="<?= View::escape($relationship['to']) ?>"
                         data-to-label="<?= View::escape($relationship['to_label']) ?>"
                         data-label="<?= View::escape($relationship['label']) ?>"
+                        data-bidirectional="<?= !empty($relationship['is_bidirectional']) ? '1' : '0' ?>"
                         data-delete-url="/patients/<?= View::escape((string) $patient->id) ?>/family-relationships/<?= View::escape((string) $relationship['id']) ?>/desactivar"
                     ></span>
                 <?php endforeach; ?>
+                </div>
             </div>
         </div>
 

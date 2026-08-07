@@ -206,7 +206,13 @@ final class PsychometricInstrumentSeeder
                      updated_at = NOW()
                  WHERE id = :id'
             );
-            $statement->execute($data + ['id' => $versionId]);
+            $statement->execute([
+                'id' => $versionId,
+                'version_label' => $data['version_label'],
+                'status' => $data['status'],
+                'scoring_config' => $data['scoring_config'],
+                'special_rules' => $data['special_rules'],
+            ]);
 
             return $versionId;
         }
@@ -301,7 +307,20 @@ final class PsychometricInstrumentSeeder
                      updated_at = NOW()
                  WHERE id = :id'
             );
-            $statement->execute($data + ['id' => $questionId]);
+            $statement->execute([
+                'id' => $questionId,
+                'question_group_id' => $data['question_group_id'],
+                'item_order' => $data['item_order'],
+                'label' => $data['label'],
+                'question_text' => $data['question_text'],
+                'prompt' => $data['prompt'],
+                'question_type' => $data['question_type'],
+                'is_required' => $data['is_required'],
+                'min_value' => $data['min_value'],
+                'max_value' => $data['max_value'],
+                'response_fields' => $data['response_fields'],
+                'metadata' => $data['metadata'],
+            ]);
 
             return $questionId;
         }
@@ -380,7 +399,12 @@ final class PsychometricInstrumentSeeder
                          updated_at = NOW()
                      WHERE id = :id'
                 );
-                $statement->execute($data + ['id' => $optionId]);
+                $statement->execute([
+                    'id' => $optionId,
+                    'option_order' => $data['option_order'],
+                    'label' => $data['label'],
+                    'score' => $data['score'],
+                ]);
                 continue;
             }
 
@@ -444,7 +468,14 @@ final class PsychometricInstrumentSeeder
                          updated_at = NOW()
                      WHERE id = :id'
                 );
-                $statement->execute($data + ['id' => $ruleId]);
+                $statement->execute([
+                    'id' => $ruleId,
+                    'rule_order' => $data['rule_order'],
+                    'label' => $data['label'],
+                    'min_score' => $data['min_score'],
+                    'max_score' => $data['max_score'],
+                    'interpretation' => $data['interpretation'],
+                ]);
                 continue;
             }
 
@@ -586,4 +617,3 @@ final class PsychometricInstrumentSeeder
         ];
     }
 }
-

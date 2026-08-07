@@ -53,6 +53,7 @@ final class PatientFamilyRelationshipRepository
                 relationship_label,
                 to_node_key,
                 to_node_label,
+                is_bidirectional,
                 is_active,
                 created_at,
                 updated_at
@@ -65,6 +66,7 @@ final class PatientFamilyRelationshipRepository
                 :relationship_label,
                 :to_node_key,
                 :to_node_label,
+                :is_bidirectional,
                 1,
                 NOW(),
                 NOW()
@@ -72,6 +74,7 @@ final class PatientFamilyRelationshipRepository
              ON DUPLICATE KEY UPDATE
                 from_node_label = VALUES(from_node_label),
                 to_node_label = VALUES(to_node_label),
+                is_bidirectional = VALUES(is_bidirectional),
                 created_by_user_id = VALUES(created_by_user_id),
                 is_active = 1,
                 updated_at = NOW()'
@@ -85,6 +88,7 @@ final class PatientFamilyRelationshipRepository
             'relationship_label' => $data['relationship_label'],
             'to_node_key' => $data['to_node_key'],
             'to_node_label' => $data['to_node_label'],
+            'is_bidirectional' => !empty($data['is_bidirectional']) ? 1 : 0,
         ]);
     }
 
@@ -120,6 +124,7 @@ final class PatientFamilyRelationshipRepository
                  relationship_label = :relationship_label,
                  to_node_key = :to_node_key,
                  to_node_label = :to_node_label,
+                 is_bidirectional = :is_bidirectional,
                  is_active = 1,
                  updated_at = NOW()
              WHERE id = :id AND patient_id = :patient_id'
@@ -133,6 +138,7 @@ final class PatientFamilyRelationshipRepository
             'relationship_label' => $data['relationship_label'],
             'to_node_key' => $data['to_node_key'],
             'to_node_label' => $data['to_node_label'],
+            'is_bidirectional' => !empty($data['is_bidirectional']) ? 1 : 0,
         ];
 
         if ((int) ($data['created_by_user_id'] ?? 0) > 0) {
@@ -162,6 +168,32 @@ final class PatientFamilyRelationshipRepository
         $statement->execute($params);
     }
 
+    public function deactivateForNode(
+        int $patientId,
+        string $nodeKey,
+        ?int $createdByUserId = null,
+        bool $includeAll = false
+    ): void {
+        $sql = 'UPDATE patient_family_relationships
+                SET is_active = 0, updated_at = NOW()
+                WHERE patient_id = :patient_id
+                  AND is_active = 1
+                  AND (from_node_key = :from_node_key OR to_node_key = :to_node_key)';
+        $params = [
+            'patient_id' => $patientId,
+            'from_node_key' => $nodeKey,
+            'to_node_key' => $nodeKey,
+        ];
+
+        if (!$includeAll) {
+            $sql .= ' AND created_by_user_id = :created_by_user_id';
+            $params['created_by_user_id'] = $createdByUserId;
+        }
+
+        $statement = $this->db->prepare($sql);
+        $statement->execute($params);
+    }
+
     private function map(array $row): PatientFamilyRelationship
     {
         return new PatientFamilyRelationship(
@@ -173,6 +205,7 @@ final class PatientFamilyRelationshipRepository
             (string) $row['relationship_label'],
             (string) $row['to_node_key'],
             (string) $row['to_node_label'],
+            (bool) ($row['is_bidirectional'] ?? false),
             (bool) $row['is_active']
         );
     }

@@ -44,6 +44,16 @@ final class Response
         );
     }
 
+    public static function download(string $content, string $filename, string $contentType): self
+    {
+        return new self($content, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'attachment; filename="' . addslashes($filename) . '"',
+            'Content-Length' => (string) strlen($content),
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
+    }
+
     public function send(): void
     {
         http_response_code($this->status);

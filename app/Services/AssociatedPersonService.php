@@ -47,6 +47,25 @@ final class AssociatedPersonService
         return $this->people->create($patientId, $participantType, $displayName, $this->normalizeName($displayName), $this->userId($user));
     }
 
+    public function deactivate(int $patientId, int $personId, ?array $user = null): void
+    {
+        if ($personId <= 0) {
+            throw new InvalidArgumentException('La persona seleccionada no es valida.');
+        }
+
+        $updated = $this->people->setActive(
+            $patientId,
+            $personId,
+            false,
+            $this->userId($user),
+            $this->canSeeAll($user)
+        );
+
+        if (!$updated) {
+            throw new InvalidArgumentException('No puedes quitar esta persona o ya no se encuentra activa.');
+        }
+    }
+
     private function userId(?array $user): ?int
     {
         $id = (int) ($user['id'] ?? 0);

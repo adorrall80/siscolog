@@ -15,6 +15,7 @@ final class PatientFamilyRelationship
         public readonly string $relationshipLabel,
         public readonly string $toNodeKey,
         public readonly string $toNodeLabel,
+        public readonly bool $isBidirectional,
         public readonly bool $isActive
     ) {
     }

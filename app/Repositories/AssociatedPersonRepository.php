@@ -139,6 +139,9 @@ final class AssociatedPersonRepository
         $existing = $this->findByNormalized($patientId, $participantType, $normalizedName, $createdByUserId);
 
         if ($existing !== null) {
+            if (!$existing->isActive) {
+                $this->setActive($patientId, (int) $existing->id, true, $createdByUserId);
+            }
             return (int) $existing->id;
         }
 
@@ -173,6 +176,33 @@ final class AssociatedPersonRepository
         ]);
 
         return (int) $this->db->lastInsertId();
+    }
+
+    public function setActive(
+        int $patientId,
+        int $id,
+        bool $active,
+        ?int $createdByUserId = null,
+        bool $includeAll = false
+    ): bool {
+        $sql = 'UPDATE patient_associated_people
+                SET is_active = :is_active, updated_at = NOW()
+                WHERE id = :id AND patient_id = :patient_id';
+        $params = [
+            'id' => $id,
+            'patient_id' => $patientId,
+            'is_active' => $active ? 1 : 0,
+        ];
+
+        if (!$includeAll) {
+            $sql .= ' AND created_by_user_id = :created_by_user_id';
+            $params['created_by_user_id'] = $createdByUserId;
+        }
+
+        $statement = $this->db->prepare($sql);
+        $statement->execute($params);
+
+        return $statement->rowCount() > 0;
     }
 
     private function map(array $row): AssociatedPerson

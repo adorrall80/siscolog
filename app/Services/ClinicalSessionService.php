@@ -50,7 +50,14 @@ final class ClinicalSessionService
     public function create(int $patientId, array $data): void
     {
         $this->validate($data);
-        $data['participants'] = $this->normalizeParticipants($patientId, $data['participants'] ?? [], $this->userFromData($data));
+        $data['participants'] = $this->uniqueParticipants(array_merge(
+            $this->normalizeOptionalParticipants($patientId, $data['participants'] ?? [], $this->userFromData($data)),
+            $this->normalizeParticipantRows($patientId, $data['participant_rows'] ?? [], $this->userFromData($data))
+        ));
+
+        if ($data['participants'] === []) {
+            throw new InvalidArgumentException('Debes registrar al menos un participante en la sesion.');
+        }
         $data['topics'] = array_merge(
             $this->normalizeTopics($data['topics'] ?? []),
             $this->normalizeTopicPairs($data['topic_pairs'] ?? []),
@@ -250,7 +257,17 @@ final class ClinicalSessionService
                 continue;
             }
 
-            if ($origin === 'O' && $personId <= 0) {
+            if ($personId > 0) {
+                $person = $this->associatedPeople->findForPatient($patientId, $personId, $user);
+
+                if ($person === null) {
+                    throw new InvalidArgumentException('Uno de los participantes no pertenece a este paciente.');
+                }
+
+                $type = $person->participantType;
+                $text = $person->displayName;
+                $origin = 'O';
+            } elseif ($origin === 'O') {
                 $personId = $this->associatedPeople->findOrCreate($patientId, $type, $text, $user);
             }
 

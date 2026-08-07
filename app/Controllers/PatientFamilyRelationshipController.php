@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Services\AssociatedPersonService;
+use App\Services\FamilyMapPdfService;
 use App\Services\MaintainerService;
 use App\Services\PatientFamilyRelationshipService;
 use App\Services\PatientService;
@@ -20,6 +21,7 @@ final class PatientFamilyRelationshipController
     private AssociatedPersonService $associatedPeople;
     private PatientFamilyRelationshipService $relationships;
     private MaintainerService $maintainers;
+    private FamilyMapPdfService $pdf;
 
     public function __construct()
     {
@@ -27,6 +29,7 @@ final class PatientFamilyRelationshipController
         $this->associatedPeople = new AssociatedPersonService();
         $this->relationships = new PatientFamilyRelationshipService();
         $this->maintainers = new MaintainerService();
+        $this->pdf = new FamilyMapPdfService();
     }
 
     public function index(Request $request): Response
@@ -70,6 +73,45 @@ final class PatientFamilyRelationshipController
         return Response::redirect("/patients/{$patientId}/vinculos#family-map");
     }
 
+    public function pdf(Request $request): Response
+    {
+        $patientId = (int) $request->param('id');
+
+        try {
+            $user = $this->currentUser();
+            $patient = $this->patients->findForUser($patientId, $user);
+            $people = $this->associatedPeople->byPatient($patientId, $user);
+            $content = $this->pdf->build($patient, $this->relationships->graph($patient, $people, $user));
+            $safeCode = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $patient->code) ?: (string) $patientId;
+
+            return Response::download(
+                $content,
+                'mapa-relaciones-' . $safeCode . '.pdf',
+                'application/pdf'
+            );
+        } catch (RuntimeException $exception) {
+            Session::flash('error', $exception->getMessage());
+            return Response::redirect("/patients/{$patientId}/vinculos");
+        }
+    }
+
+    public function deactivatePerson(Request $request): Response
+    {
+        $patientId = (int) $request->param('id');
+        $personId = (int) $request->param('personId');
+
+        try {
+            $this->patients->findForUser($patientId, $this->currentUser());
+            $this->associatedPeople->deactivate($patientId, $personId, $this->currentUser());
+            $this->relationships->deactivateForPerson($patientId, $personId, $this->currentUser());
+            Session::flash('success', 'Persona quitada del mapa. Las sesiones anteriores se conservaron.');
+        } catch (InvalidArgumentException | RuntimeException $exception) {
+            Session::flash('error', $exception->getMessage());
+        }
+
+        return Response::redirect("/patients/{$patientId}/vinculos#family-map");
+    }
+
     public function store(Request $request): Response
     {
         $patientId = (int) $request->param('id');
@@ -81,6 +123,7 @@ final class PatientFamilyRelationshipController
                 'from_node_key' => (string) $request->input('from_node_key'),
                 'relationship_label' => (string) $request->input('relationship_label'),
                 'to_node_key' => (string) $request->input('to_node_key'),
+                'is_bidirectional' => (string) $request->input('is_bidirectional', '0'),
                 'replace_existing_relationship' => (string) $request->input('replace_existing_relationship'),
                 'replace_relationship_id' => (string) $request->input('replace_relationship_id'),
             ]);

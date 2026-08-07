@@ -131,6 +131,9 @@ final class ClinicalSessionController
             'agreements' => trim((string) $request->input('agreements')),
             'next_steps' => trim((string) $request->input('next_steps')),
             'participants' => $participants,
+            'participant_rows' => is_array($request->input('participant_rows', []))
+                ? $request->input('participant_rows', [])
+                : [],
             'topics' => is_array($request->input('topics', [])) ? $request->input('topics', []) : [],
             'topic_pairs' => is_array($request->input('topic_pairs', [])) ? $request->input('topic_pairs', []) : [],
             'topic_type_text' => trim((string) $request->input('topic_type_text')),
