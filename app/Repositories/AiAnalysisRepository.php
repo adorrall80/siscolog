@@ -57,7 +57,10 @@ final class AiAnalysisRepository
                 source_ids,
                 model,
                 prompt_version,
+                prompt_text,
                 output_json,
+                final_text,
+                selected_source,
                 review_status,
                 is_active,
                 professional_notes,
@@ -73,7 +76,10 @@ final class AiAnalysisRepository
                 :source_ids,
                 :model,
                 :prompt_version,
+                :prompt_text,
                 :output_json,
+                :final_text,
+                :selected_source,
                 :review_status,
                 1,
                 NULL,
@@ -91,7 +97,10 @@ final class AiAnalysisRepository
             'source_ids' => $data['source_ids'],
             'model' => $data['model'],
             'prompt_version' => $data['prompt_version'],
+            'prompt_text' => $data['prompt_text'] ?? null,
             'output_json' => $data['output_json'],
+            'final_text' => $data['final_text'] ?? null,
+            'selected_source' => $data['selected_source'] ?? 'ia',
             'review_status' => $data['review_status'],
         ]);
     }
@@ -164,6 +173,8 @@ final class AiAnalysisRepository
         $statement = $this->db->prepare(
             'UPDATE ai_analysis_outputs
              SET review_status = :review_status,
+                 final_text = :final_text,
+                 selected_source = :selected_source,
                  professional_notes = :professional_notes,
                  reviewed_by = :reviewed_by,
                  reviewed_at = NOW(),
@@ -174,6 +185,8 @@ final class AiAnalysisRepository
         $statement->execute([
             'id' => $id,
             'review_status' => $data['review_status'],
+            'final_text' => $data['final_text'],
+            'selected_source' => $data['selected_source'],
             'professional_notes' => $data['professional_notes'] ?: null,
             'reviewed_by' => $data['reviewed_by'],
         ]);
@@ -189,7 +202,10 @@ final class AiAnalysisRepository
             $row['source_ids'],
             $row['model'],
             (string) $row['prompt_version'],
+            $row['prompt_text'] ?? null,
             (string) $row['output_json'],
+            $row['final_text'] ?? null,
+            (string) ($row['selected_source'] ?? 'ia'),
             (string) $row['review_status'],
             (bool) $row['is_active'],
             $row['professional_notes'],

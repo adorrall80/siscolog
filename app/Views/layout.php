@@ -757,6 +757,23 @@
         })();
 
         (function () {
+            const archivedToggle = document.querySelector('[data-family-archived-toggle]');
+            const archivedPanel = document.querySelector('[data-family-archived-panel]');
+
+            if (archivedToggle && archivedPanel) {
+                const archivedLabel = archivedToggle.querySelector('[data-family-archived-toggle-label]');
+                const archivedCount = archivedPanel.querySelectorAll('.family-archived-list article').length;
+
+                archivedToggle.addEventListener('click', function () {
+                    const willOpen = archivedToggle.getAttribute('aria-expanded') !== 'true';
+                    archivedToggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                    archivedPanel.hidden = !willOpen;
+                    if (archivedLabel) {
+                        archivedLabel.textContent = (willOpen ? 'Ocultar archivados' : 'Mostrar archivados') + ' (' + archivedCount + ')';
+                    }
+                });
+            }
+
             const maps = document.querySelectorAll('[data-family-map]');
 
             if (!maps.length) {
@@ -1457,14 +1474,15 @@
                     badge.setAttribute('data-family-relation-badge', '');
                     badge.style.left = mx + 'px';
                     badge.style.top = my + 'px';
-                    badge.title = [
-                        relation.getAttribute('data-from-label') || '',
-                        relation.getAttribute('data-label') || '',
-                        relation.getAttribute('data-to-label') || ''
-                    ].filter(Boolean).join(' ');
+                    const fromLabel = relation.getAttribute('data-from-label') || '';
+                    const relationLabel = relation.getAttribute('data-label') || '';
+                    const toLabel = relation.getAttribute('data-to-label') || '';
+                    const directionSymbol = relation.getAttribute('data-bidirectional') === '1' ? ' ↔ ' : ' → ';
+                    const fullRelationshipLabel = fromLabel + ' — ' + relationLabel + directionSymbol + toLabel;
+                    badge.title = fullRelationshipLabel;
 
                     const label = document.createElement('span');
-                    label.textContent = relation.getAttribute('data-label') || '';
+                    label.textContent = fullRelationshipLabel;
                     label.title = badge.title;
                     badge.appendChild(label);
 
@@ -1492,6 +1510,214 @@
             });
             window.addEventListener('resize', function () {
                 maps.forEach(drawMap);
+            });
+        })();
+
+        (function () {
+            document.querySelectorAll('[data-ai-evolution-toggle]').forEach(function (toggleButton) {
+                const analysisId = toggleButton.getAttribute('data-ai-evolution-toggle');
+                const content = document.querySelector('[data-ai-evolution-content="' + analysisId + '"]');
+                const closeButton = document.querySelector('[data-ai-evolution-close="' + analysisId + '"]');
+                const label = toggleButton.querySelector('[data-ai-evolution-toggle-label]');
+
+                if (!content) {
+                    return;
+                }
+
+                const setOpen = function (isOpen) {
+                    content.hidden = !isOpen;
+                    toggleButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    if (label) {
+                        label.textContent = isOpen ? 'Ocultar evolución IA' : 'Abrir evolución IA';
+                    }
+                };
+
+                toggleButton.addEventListener('click', function () {
+                    setOpen(toggleButton.getAttribute('aria-expanded') !== 'true');
+                });
+
+                if (closeButton) {
+                    closeButton.addEventListener('click', function () {
+                        setOpen(false);
+                        toggleButton.focus();
+                    });
+                }
+            });
+
+            document.querySelectorAll('[data-ai-prompt-open]').forEach(function (openButton) {
+                const analysisId = openButton.getAttribute('data-ai-prompt-open');
+                const modal = document.querySelector('[data-ai-prompt-modal="' + analysisId + '"]');
+
+                if (!modal) {
+                    return;
+                }
+
+                const close = function () {
+                    modal.hidden = true;
+                    document.body.classList.remove('modal-open');
+                };
+
+                openButton.addEventListener('click', function () {
+                    modal.hidden = false;
+                    document.body.classList.add('modal-open');
+                });
+
+                modal.querySelectorAll('[data-ai-prompt-close]').forEach(function (button) {
+                    button.addEventListener('click', close);
+                });
+
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        close();
+                    }
+                });
+
+                const copyButton = modal.querySelector('[data-ai-prompt-copy]');
+                const promptText = modal.querySelector('[data-ai-prompt-text]');
+                const status = modal.querySelector('[data-ai-prompt-status]');
+
+                if (copyButton && promptText) {
+                    copyButton.addEventListener('click', async function () {
+                        try {
+                            await navigator.clipboard.writeText(promptText.value);
+                            if (status) {
+                                status.textContent = 'Prompt copiado.';
+                            }
+                        } catch (error) {
+                            promptText.select();
+                            if (status) {
+                                status.textContent = 'Selecciona y copia el texto manualmente.';
+                            }
+                        }
+                    });
+                }
+            });
+
+            const setupAiModal = function (openSelector, modalAttribute, closeSelector) {
+                document.querySelectorAll(openSelector).forEach(function (openButton) {
+                    const analysisId = openButton.getAttribute(openSelector.slice(1, -1).split('=')[0]);
+                    const modal = document.querySelector('[' + modalAttribute + '="' + analysisId + '"]');
+
+                    if (!modal) {
+                        return;
+                    }
+
+                    const close = function () {
+                        modal.hidden = true;
+                        document.body.classList.remove('modal-open');
+                    };
+
+                    openButton.addEventListener('click', function () {
+                        modal.hidden = false;
+                        document.body.classList.add('modal-open');
+                    });
+                    modal.querySelectorAll(closeSelector).forEach(function (button) {
+                        button.addEventListener('click', close);
+                    });
+                    modal.addEventListener('click', function (event) {
+                        if (event.target === modal) {
+                            close();
+                        }
+                    });
+                });
+            };
+
+            setupAiModal('[data-ai-edit-open]', 'data-ai-edit-modal', '[data-ai-edit-close]');
+            setupAiModal('[data-ai-original-open]', 'data-ai-original-modal', '[data-ai-original-close]');
+
+            document.querySelectorAll('[data-ai-review-form]').forEach(function (form) {
+                const payload = form.querySelector('[data-ai-generated-text]');
+                const finalText = form.querySelector('[data-ai-final-text]');
+                let generatedText = '';
+
+                try {
+                    generatedText = JSON.parse(payload ? payload.textContent : '""');
+                } catch (error) {
+                    generatedText = '';
+                }
+
+                form.querySelectorAll('[data-ai-source]').forEach(function (source) {
+                    source.addEventListener('change', function () {
+                        if (!source.checked || !finalText) {
+                            return;
+                        }
+
+                        if (source.value === 'ia') {
+                            finalText.value = generatedText;
+                        } else {
+                            finalText.value = '';
+                            finalText.focus();
+                        }
+                    });
+                });
+            });
+
+            document.querySelectorAll('[data-ai-void-form]').forEach(function (form) {
+                const modal = form.querySelector('[data-ai-void-modal]');
+                const openButton = form.querySelector('[data-ai-void-open]');
+
+                if (!modal || !openButton) {
+                    return;
+                }
+
+                const close = function () {
+                    modal.hidden = true;
+                    document.body.classList.remove('modal-open');
+                };
+
+                openButton.addEventListener('click', function () {
+                    modal.hidden = false;
+                    document.body.classList.add('modal-open');
+                });
+
+                form.querySelectorAll('[data-ai-void-close]').forEach(function (button) {
+                    button.addEventListener('click', close);
+                });
+
+                modal.addEventListener('click', function (event) {
+                    if (event.target === modal) {
+                        close();
+                    }
+                });
+            });
+        })();
+
+        (function () {
+            const form = document.querySelector('[data-appointment-filter-form]');
+
+            if (!form) {
+                return;
+            }
+
+            const toggle = form.querySelector('[data-appointment-filter-toggle]');
+            const panel = form.querySelector('[data-appointment-filter-panel]');
+            const orderValue = form.querySelector('[data-appointment-order-value]');
+            const viewValue = form.querySelector('[data-appointment-view-value]');
+
+            if (toggle && panel) {
+                toggle.addEventListener('click', function () {
+                    const willOpen = panel.hidden;
+                    panel.hidden = !willOpen;
+                    toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                });
+            }
+
+            form.querySelectorAll('[data-appointment-order]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (orderValue) {
+                        orderValue.value = button.getAttribute('data-appointment-order') || 'desc';
+                    }
+                    form.submit();
+                });
+            });
+
+            form.querySelectorAll('[data-appointment-view]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    if (viewValue) {
+                        viewValue.value = button.getAttribute('data-appointment-view') || 'listado';
+                    }
+                    form.submit();
+                });
             });
         })();
 

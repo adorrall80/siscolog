@@ -83,6 +83,7 @@ final class AiAnalysisService
         }
 
         $context = $this->analysisContext($patient, $activeSessions, $activePsychometrics, $activePsychometricDetails, $activeSessionIds, $sourceFingerprint);
+        $promptText = $this->aiProvider->promptForReview($context);
         $output = $this->aiProvider->generateClinicalEvolution($context) ?? $this->localClinicalOutput(
             $patient,
             $activeSessions,
@@ -103,7 +104,10 @@ final class AiAnalysisService
             'source_ids' => json_encode($activeSessionIds),
             'model' => $this->aiProvider->configured() ? $this->aiProvider->model() : 'simulado-mvp',
             'prompt_version' => $this->aiProvider->configured() ? $this->aiProvider->promptVersion() : 'mvp-v1',
+            'prompt_text' => $promptText,
             'output_json' => json_encode($output, JSON_UNESCAPED_UNICODE),
+            'final_text' => $this->editableTextFromOutput($output),
+            'selected_source' => 'ia',
             'review_status' => $this->maintainers->defaultCode(MaintainerService::AI_REVIEW_STATUSES) ?: 'pendiente',
         ]);
     }
@@ -159,9 +163,7 @@ final class AiAnalysisService
     {
         return [
             'paciente' => [
-                'id' => $patient->id,
                 'codigo' => $patient->code,
-                'nombre' => $patient->fullName,
                 'estado' => $patient->status,
             ],
             'fuentes' => [
@@ -247,6 +249,10 @@ final class AiAnalysisService
     private function currentAnalysisWithSameSources(int $patientId, array $activeSessionIds, string $sourceFingerprint, ?array $user): ?AiAnalysisOutput
     {
         foreach ($this->byPatient($patientId, $user) as $analysis) {
+            if (!$analysis->isActive) {
+                continue;
+            }
+
             if ($analysis->sourceType !== 'historial_clinico_longitudinal') {
                 continue;
             }
@@ -295,11 +301,50 @@ final class AiAnalysisService
             throw new InvalidArgumentException('El estado de revision IA no es valido.');
         }
 
+        $selectedSource = (string) ($data['selected_source'] ?? 'ia');
+        if (!in_array($selectedSource, ['ia', 'externa'], true)) {
+            throw new InvalidArgumentException('Selecciona el origen del texto que deseas guardar.');
+        }
+
+        $finalText = trim((string) ($data['final_text'] ?? ''));
+        if ($finalText === '') {
+            throw new InvalidArgumentException('El texto final de la evolucion no puede quedar vacio.');
+        }
+
         $this->analyses->review($analysisId, [
             'review_status' => $data['review_status'],
+            'final_text' => $finalText,
+            'selected_source' => $selectedSource,
             'professional_notes' => trim((string) ($data['professional_notes'] ?? '')),
             'reviewed_by' => $data['reviewed_by'] ?? $this->userId($user),
         ]);
+    }
+
+    private function editableTextFromOutput(array $output): string
+    {
+        $sections = [
+            'Resumen clinico' => $output['resumen'] ?? '',
+            'Evolucion del caso' => $output['evolucion_del_caso'] ?? '',
+            'Factores observados' => $output['factores_observados'] ?? [],
+            'Hipotesis de trabajo' => $output['hipotesis_de_trabajo'] ?? [],
+            'Factores protectores' => $output['factores_protectores'] ?? [],
+            'Alertas' => $output['alertas'] ?? [],
+            'Proximos pasos sugeridos' => $output['proximos_pasos_sugeridos'] ?? [],
+            'Preguntas para la proxima sesion' => $output['preguntas_para_proxima_sesion'] ?? [],
+        ];
+        $blocks = [];
+
+        foreach ($sections as $title => $value) {
+            if (is_array($value)) {
+                $value = implode("\n", array_map(fn ($item): string => '- ' . (string) $item, $value));
+            }
+            $value = trim((string) $value);
+            if ($value !== '') {
+                $blocks[] = $title . "\n" . $value;
+            }
+        }
+
+        return implode("\n\n", $blocks);
     }
 
     private function userId(?array $user): ?int

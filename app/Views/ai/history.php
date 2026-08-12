@@ -15,6 +15,32 @@ foreach ($sessions as $session) {
     $sessionsById[(int) $session->id] = $session;
 }
 
+$aiOutputToText = static function (array $output): string {
+    $sections = [
+        'Resumen clínico' => $output['resumen'] ?? '',
+        'Evolución del caso' => $output['evolucion_del_caso'] ?? '',
+        'Factores observados' => $output['factores_observados'] ?? [],
+        'Hipótesis de trabajo' => $output['hipotesis_de_trabajo'] ?? [],
+        'Factores protectores' => $output['factores_protectores'] ?? [],
+        'Alertas' => $output['alertas'] ?? [],
+        'Próximos pasos sugeridos' => $output['proximos_pasos_sugeridos'] ?? [],
+        'Preguntas para la próxima sesión' => $output['preguntas_para_proxima_sesion'] ?? [],
+    ];
+    $blocks = [];
+
+    foreach ($sections as $title => $value) {
+        if (is_array($value)) {
+            $value = implode("\n", array_map(fn ($item): string => '- ' . (string) $item, $value));
+        }
+        $value = trim((string) $value);
+        if ($value !== '') {
+            $blocks[] = $title . "\n" . $value;
+        }
+    }
+
+    return implode("\n\n", $blocks);
+};
+
 ob_start();
 ?>
 <nav class="record-tabs" aria-label="Secciones de ficha paciente">
@@ -53,6 +79,9 @@ ob_start();
             <?php foreach ($analyses as $analysis): ?>
                 <?php
                 $output = $analysis->output();
+                $originalAiText = $aiOutputToText($output);
+                $savedEvolutionText = trim((string) ($analysis->finalText ?? '')) ?: $originalAiText;
+                $savedEvolutionSource = $analysis->selectedSource === 'externa' ? 'Propuesta externa' : 'Propuesta de IA';
                 $sourceIds = json_decode((string) $analysis->sourceIds, true);
                 $sourceIds = is_array($sourceIds) ? array_map('intval', $sourceIds) : [];
                 usort($sourceIds, function (int $left, int $right) use ($sessionsById): int {
@@ -119,6 +148,18 @@ ob_start();
                         <summary>
                             <?= $analysis->isActive ? 'Ver detalle de la version vigente' : 'Ver detalle de esta version historica' ?>
                         </summary>
+
+                    <div class="ai-history-saved-evolution">
+                        <div class="ai-history-saved-head">
+                            <strong>Evolución final guardada en esta versión</strong>
+                            <span class="state tone-blue"><?= View::escape($savedEvolutionSource) ?></span>
+                        </div>
+                        <div class="note-block ai-history-final-text"><?= nl2br(View::escape($savedEvolutionText ?: 'Esta versión no tiene un texto final guardado.')) ?></div>
+                        <details class="ai-history-original-output">
+                            <summary>Ver propuesta original de IA</summary>
+                            <div class="note-block"><?= nl2br(View::escape($originalAiText ?: 'La propuesta original no está disponible para esta versión antigua.')) ?></div>
+                        </details>
+                    </div>
 
                     <dl>
                         <dt>Participantes considerados</dt>

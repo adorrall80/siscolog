@@ -95,6 +95,30 @@ foreach ($aiReviewStatuses as $status) {
     $reviewColors[$status->code] = $status->color ?: 'amber';
 }
 
+$aiOutputToText = static function (array $output): string {
+    $sections = [
+        'Resumen clinico' => $output['resumen'] ?? '',
+        'Evolucion del caso' => $output['evolucion_del_caso'] ?? '',
+        'Factores observados' => $output['factores_observados'] ?? [],
+        'Hipotesis de trabajo' => $output['hipotesis_de_trabajo'] ?? [],
+        'Factores protectores' => $output['factores_protectores'] ?? [],
+        'Alertas' => $output['alertas'] ?? [],
+        'Proximos pasos sugeridos' => $output['proximos_pasos_sugeridos'] ?? [],
+        'Preguntas para la proxima sesion' => $output['preguntas_para_proxima_sesion'] ?? [],
+    ];
+    $blocks = [];
+    foreach ($sections as $title => $value) {
+        if (is_array($value)) {
+            $value = implode("\n", array_map(fn ($item): string => '- ' . (string) $item, $value));
+        }
+        $value = trim((string) $value);
+        if ($value !== '') {
+            $blocks[] = $title . "\n" . $value;
+        }
+    }
+    return implode("\n\n", $blocks);
+};
+
 ob_start();
 ?>
 <nav class="record-tabs" aria-label="Secciones de ficha paciente">
@@ -366,7 +390,7 @@ ob_start();
                 </div>
                 <form method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/ai-analysis">
                     <button class="button small" type="submit" <?= $canAnalyzeWithAi ? '' : 'disabled' ?>>
-                        Generar evolucion IA del caso
+                        <?= $analysisCount > 0 ? 'Regenerar evolución completa' : 'Generar evolución IA del caso' ?>
                     </button>
                 </form>
                 <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>/ai-history">Historial IA</a>
@@ -381,7 +405,11 @@ ob_start();
                     </div>
                 </div>
             <?php else: ?>
-                <p class="form-help">La evolucion IA usa solo sesiones activas. Si cambian los datos clinicos, elimina la salida anterior y deja solo la ultima version.</p>
+                <div class="ai-regeneration-help">
+                    <strong>¿Una cita quedó incorrecta o fue modificada?</strong>
+                    <span>Edita primero la sesión y luego selecciona “Regenerar evolución completa”. Se volverán a procesar todas las sesiones activas y la versión anterior quedará en el historial.</span>
+                    <a class="button small secondary" href="/citas">Ir a editar sesiones</a>
+                </div>
             <?php endif; ?>
 
             <?php if ($analysisCount === 0): ?>
@@ -389,7 +417,11 @@ ob_start();
             <?php else: ?>
                 <div class="timeline compact-timeline">
                     <?php foreach ($analyses as $analysis): ?>
-                        <?php $output = $analysis->output(); ?>
+                        <?php
+                        $output = $analysis->output();
+                        $generatedText = $aiOutputToText($output);
+                        $finalText = trim((string) ($analysis->finalText ?? '')) ?: $generatedText;
+                        ?>
                         <article class="timeline-item">
                             <div class="timeline-meta">
                                 <span class="state tone-<?= View::escape($reviewColors[$analysis->reviewStatus] ?? 'amber') ?>">
@@ -398,44 +430,77 @@ ob_start();
                                 <span class="state tone-<?= $analysis->isActive ? 'green' : 'red' ?>">
                                     <?= $analysis->isActive ? 'Activo' : 'Inactivo' ?>
                                 </span>
+                                <button
+                                    class="ai-prompt-icon"
+                                    type="button"
+                                    title="Ver prompt utilizado"
+                                    aria-label="Ver prompt utilizado"
+                                    data-ai-prompt-open="<?= View::escape((string) $analysis->id) ?>"
+                                >💬</button>
                             </div>
 
-                            <h2><?= View::escape($analysis->createdAt ?: 'Sin fecha') ?></h2>
-                            <p><?= View::escape((string) ($output['resumen'] ?? 'Sin resumen disponible.')) ?></p>
+                            <div class="ai-current-evolution">
+                                <div class="ai-current-evolution-head">
+                                    <div>
+                                        <p class="eyebrow">Evolución final vigente</p>
+                                        <h2><?= View::escape($analysis->createdAt ?: 'Sin fecha') ?></h2>
+                                    </div>
+                                    <span class="state tone-blue"><?= $analysis->selectedSource === 'externa' ? 'Propuesta externa' : 'Propuesta de IA' ?></span>
+                                </div>
+                                <button class="button small ai-evolution-toggle" type="button" data-ai-evolution-toggle="<?= View::escape((string) $analysis->id) ?>" aria-expanded="false">
+                                    <span data-ai-evolution-toggle-label>Abrir evolución IA</span>
+                                </button>
+                                <div data-ai-evolution-content="<?= View::escape((string) $analysis->id) ?>" hidden>
+                                    <div class="ai-final-text-view"><?= nl2br(View::escape($finalText)) ?></div>
+                                    <?php if ($analysis->professionalNotes): ?>
+                                        <div class="ai-professional-note"><strong>Nota profesional</strong><span><?= View::escape($analysis->professionalNotes) ?></span></div>
+                                    <?php endif; ?>
+                                    <button class="button small secondary ai-evolution-close" type="button" data-ai-evolution-close="<?= View::escape((string) $analysis->id) ?>">Cerrar evolución IA</button>
+                                </div>
+                            </div>
 
-                            <dl>
-                                <dt>Evolucion del caso</dt>
-                                <dd><?= View::escape((string) ($output['evolucion_del_caso'] ?? 'Pendiente de comparar sesiones.')) ?></dd>
-                            <?php
-                            $observedFactors = array_values(array_filter(
-                                $output['factores_observados'] ?? ['Sin factores registrados.'],
-                                fn (string $factor): bool => strpos($factor, 'Participantes de sesion:') !== 0
-                            ));
-                            $observedFactors = $observedFactors === [] ? ['Sin factores clinicos registrados.'] : $observedFactors;
-                            ?>
-                            <dt>Factores observados</dt>
-                            <dd><?= View::escape(implode(' | ', $observedFactors)) ?></dd>
-                                <dt>Hipotesis de trabajo</dt>
-                                <dd><?= View::escape(implode(' | ', $output['hipotesis_de_trabajo'] ?? ['Pendiente de evaluacion profesional.'])) ?></dd>
-                                <dt>Factores protectores</dt>
-                                <dd><?= View::escape(implode(' | ', $output['factores_protectores'] ?? ['No registrados.'])) ?></dd>
-                                <dt>Alertas</dt>
-                                <dd><?= View::escape(implode(' | ', $output['alertas'] ?? ['Sin alertas registradas.'])) ?></dd>
-                                <dt>Preguntas proxima sesion</dt>
-                                <dd><?= View::escape(implode(' | ', $output['preguntas_para_proxima_sesion'] ?? ['Pendiente de definir.'])) ?></dd>
-                                <dt>Limite de uso</dt>
-                                <dd><?= View::escape((string) ($output['limites'] ?? 'Requiere revision profesional.')) ?></dd>
-                                <?php if ($analysis->professionalNotes): ?>
-                                    <dt>Nota profesional</dt>
-                                    <dd><?= View::escape($analysis->professionalNotes) ?></dd>
-                                <?php endif; ?>
-                                <?php if ($analysis->reviewedAt): ?>
-                                    <dt>Revisado</dt>
-                                    <dd><?= View::escape($analysis->reviewedAt) ?></dd>
-                                <?php endif; ?>
-                            </dl>
+                            <div class="modal-backdrop" data-ai-prompt-modal="<?= View::escape((string) $analysis->id) ?>" hidden>
+                                <section class="modal-panel ai-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-prompt-title-<?= View::escape((string) $analysis->id) ?>">
+                                    <div class="modal-head">
+                                        <div>
+                                            <p class="eyebrow">Prompt utilizado</p>
+                                            <h2 id="ai-prompt-title-<?= View::escape((string) $analysis->id) ?>">Contexto enviado al análisis</h2>
+                                        </div>
+                                        <button class="icon-button" type="button" data-ai-prompt-close aria-label="Cerrar">×</button>
+                                    </div>
+                                    <p class="form-help">Este contenido puede incluir información clínica. Revísalo antes de copiarlo fuera de SisColog.</p>
+                                    <textarea class="ai-prompt-text" rows="18" readonly data-ai-prompt-text><?= View::escape($analysis->promptText ?: 'Prompt no disponible para esta evolución antigua.') ?></textarea>
+                                    <div class="form-actions">
+                                        <button class="button small secondary" type="button" data-ai-prompt-copy>Copiar prompt</button>
+                                        <button class="button small" type="button" data-ai-prompt-close>Cerrar</button>
+                                    </div>
+                                    <small data-ai-prompt-status></small>
+                                </section>
+                            </div>
 
-                            <form class="inline-search" method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/ai-analysis/<?= View::escape((string) $analysis->id) ?>/review">
+                            <div class="modal-backdrop" data-ai-edit-modal="<?= View::escape((string) $analysis->id) ?>" hidden>
+                                <section class="modal-panel ai-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-edit-title-<?= View::escape((string) $analysis->id) ?>">
+                                    <div class="modal-head">
+                                        <div><p class="eyebrow">Editar evolución vigente</p><h2 id="ai-edit-title-<?= View::escape((string) $analysis->id) ?>">Selecciona y revisa el texto final</h2></div>
+                                        <button class="icon-button" type="button" data-ai-edit-close aria-label="Cerrar">×</button>
+                                    </div>
+                            <form class="ai-review-editor" method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/ai-analysis/<?= View::escape((string) $analysis->id) ?>/review" data-ai-review-form>
+                                <script type="application/json" data-ai-generated-text><?= json_encode($generatedText, JSON_UNESCAPED_UNICODE) ?></script>
+                                <fieldset class="ai-source-options">
+                                    <legend>Texto que quedará visible</legend>
+                                    <label class="check-card">
+                                        <input type="radio" name="selected_source" value="ia" <?= $analysis->selectedSource !== 'externa' ? 'checked' : '' ?> data-ai-source>
+                                        <span><strong>Usar propuesta de IA</strong><small>Carga la respuesta original para editarla.</small></span>
+                                    </label>
+                                    <label class="check-card">
+                                        <input type="radio" name="selected_source" value="externa" <?= $analysis->selectedSource === 'externa' ? 'checked' : '' ?> data-ai-source>
+                                        <span><strong>Pegar otra propuesta</strong><small>Para un análisis realizado fuera del sistema.</small></span>
+                                    </label>
+                                </fieldset>
+                                <label class="ai-final-text-label">
+                                    Evolución final editable
+                                    <textarea name="final_text" rows="12" required data-ai-final-text placeholder="Pega o escribe aquí el texto final que deseas guardar."><?= View::escape($finalText) ?></textarea>
+                                </label>
                                 <label>
                                     Estado revision
                                     <select name="review_status">
@@ -450,21 +515,48 @@ ob_start();
                                     Nota profesional
                                     <textarea name="professional_notes" rows="4" placeholder="Criterio clinico, ajuste o descarte"><?= View::escape($analysis->professionalNotes ?: '') ?></textarea>
                                 </label>
-                                <button class="button small" type="submit">Guardar revision</button>
+                                <div class="form-actions">
+                                    <button class="button small secondary" type="button" data-ai-edit-close>Cancelar</button>
+                                    <button class="button small" type="submit">Guardar cambios</button>
+                                </div>
                             </form>
+                                </section>
+                            </div>
 
                             <div class="table-actions">
-                                <?php if ($analysis->isActive): ?>
-                                    <a class="switch-action is-on" href="/patients/<?= View::escape((string) $patient->id) ?>/ai-analysis/<?= View::escape((string) $analysis->id) ?>/desactivar" aria-label="Desactivar analisis IA">
-                                        <span></span>
-                                        Vigente
-                                    </a>
-                                <?php else: ?>
-                                    <a class="switch-action is-off" href="/patients/<?= View::escape((string) $patient->id) ?>/ai-analysis/<?= View::escape((string) $analysis->id) ?>/activar" aria-label="Activar analisis IA">
-                                        <span></span>
-                                        No vigente
-                                    </a>
-                                <?php endif; ?>
+                                <button class="button small" type="button" data-ai-edit-open="<?= View::escape((string) $analysis->id) ?>">Editar evolución</button>
+                                <button class="button small secondary" type="button" data-ai-original-open="<?= View::escape((string) $analysis->id) ?>">Ver propuesta original de IA</button>
+                                <form method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/ai-analysis/<?= View::escape((string) $analysis->id) ?>/anular" data-ai-void-form>
+                                    <button class="button small danger" type="button" data-ai-void-open>Anular evolución</button>
+                                    <div class="modal-backdrop" data-ai-void-modal hidden>
+                                        <section class="modal-panel ai-void-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-void-title-<?= View::escape((string) $analysis->id) ?>">
+                                            <div class="modal-head">
+                                                <div>
+                                                    <p class="eyebrow">Confirmar anulación</p>
+                                                    <h2 id="ai-void-title-<?= View::escape((string) $analysis->id) ?>">¿Anular esta evolución IA?</h2>
+                                                </div>
+                                                <button class="icon-button" type="button" data-ai-void-close aria-label="Cerrar">×</button>
+                                            </div>
+                                            <p>Desaparecerá de la ficha actual, pero se conservará como versión anulada en el historial para mantener la trazabilidad clínica.</p>
+                                            <div class="form-actions">
+                                                <button class="button small secondary" type="button" data-ai-void-close>Cancelar</button>
+                                                <button class="button small danger" type="submit">Sí, anular evolución</button>
+                                            </div>
+                                        </section>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="modal-backdrop" data-ai-original-modal="<?= View::escape((string) $analysis->id) ?>" hidden>
+                                <section class="modal-panel ai-prompt-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-original-title-<?= View::escape((string) $analysis->id) ?>">
+                                    <div class="modal-head">
+                                        <div><p class="eyebrow">Respaldo sin modificaciones</p><h2 id="ai-original-title-<?= View::escape((string) $analysis->id) ?>">Propuesta original de IA</h2></div>
+                                        <button class="icon-button" type="button" data-ai-original-close aria-label="Cerrar">×</button>
+                                    </div>
+                                    <p class="form-help">Esta es la propuesta generada originalmente. Consultarla no modifica la evolución vigente.</p>
+                                    <textarea class="ai-prompt-text" rows="18" readonly><?= View::escape($generatedText) ?></textarea>
+                                    <div class="form-actions"><button class="button small" type="button" data-ai-original-close>Cerrar</button></div>
+                                </section>
                             </div>
                         </article>
                     <?php endforeach; ?>
@@ -486,7 +578,7 @@ ob_start();
             <?php if ($sessionCount === 0): ?>
                 <p>No hay sesiones registradas todavia.</p>
             <?php else: ?>
-                <div class="timeline compact-timeline">
+                <div class="timeline compact-timeline sessions-history-timeline">
                     <?php foreach ($sessions as $session): ?>
                         <article class="timeline-item" id="session-<?= View::escape((string) $session->id) ?>">
                             <div class="timeline-meta">

@@ -23,6 +23,15 @@ foreach ($riskLevels as $riskLevel) {
     $riskColors[$riskLevel->code] = $riskLevel->color ?: 'green';
 }
 
+$activeFilterCount = 0;
+$activeFilterCount += trim((string) ($filters['q'] ?? '')) !== '' ? 1 : 0;
+$activeFilterCount += ($filters['estado'] ?? 'todos') !== 'todos' ? 1 : 0;
+$activeFilterCount += ($filters['periodo'] ?? 'todos') !== 'todos' ? 1 : 0;
+$activeFilterCount += ($filters['modality'] ?? '') !== '' ? 1 : 0;
+$activeFilterCount += ($filters['risk_level'] ?? '') !== '' ? 1 : 0;
+$activeFilterCount += ($filters['date_from'] ?? '') !== '' ? 1 : 0;
+$activeFilterCount += ($filters['date_to'] ?? '') !== '' ? 1 : 0;
+
 ob_start();
 ?>
 <section class="panel">
@@ -35,7 +44,70 @@ ob_start();
         <a class="button" href="/patients">Buscar paciente</a>
     </div>
 
-    <form class="inline-search appointment-filters" method="get" action="/citas">
+    <form class="appointment-filter-shell" method="get" action="/citas" data-appointment-filter-form>
+        <input type="hidden" name="orden" value="<?= View::escape((string) ($filters['orden'] ?? 'desc')) ?>" data-appointment-order-value>
+        <input type="hidden" name="vista" value="<?= View::escape((string) ($filters['vista'] ?? 'listado')) ?>" data-appointment-view-value>
+
+        <div class="appointment-filter-toolbar">
+            <button
+                class="button small secondary appointment-toolbar-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="appointment-filter-panel"
+                data-appointment-filter-toggle
+            >
+                <span class="appointment-toolbar-icon" aria-hidden="true">☷</span>
+                Filtros
+                <span class="appointment-filter-count"><?= View::escape((string) $activeFilterCount) ?></span>
+            </button>
+
+            <div class="appointment-toolbar-spacer"></div>
+
+            <div class="appointment-toolbar-group" aria-label="Orden de las sesiones">
+                <span class="appointment-toolbar-label">Orden</span>
+                <button
+                    class="appointment-icon-choice <?= ($filters['orden'] ?? 'desc') === 'desc' ? 'active' : '' ?>"
+                    type="button"
+                    aria-label="Más recientes primero"
+                    title="Más recientes primero"
+                    data-appointment-order="desc"
+                >↓</button>
+                <button
+                    class="appointment-icon-choice <?= ($filters['orden'] ?? '') === 'asc' ? 'active' : '' ?>"
+                    type="button"
+                    aria-label="Más antiguas primero"
+                    title="Más antiguas primero"
+                    data-appointment-order="asc"
+                >↑</button>
+            </div>
+
+            <div class="appointment-toolbar-group" aria-label="Vista de las sesiones">
+                <span class="appointment-toolbar-label">Vista</span>
+                <button
+                    class="appointment-icon-choice <?= ($filters['vista'] ?? 'listado') === 'listado' ? 'active' : '' ?>"
+                    type="button"
+                    aria-label="Vista de listado"
+                    title="Listado"
+                    data-appointment-view="listado"
+                >☰</button>
+                <button
+                    class="appointment-icon-choice <?= ($filters['vista'] ?? '') === 'semana' ? 'active' : '' ?>"
+                    type="button"
+                    aria-label="Vista semanal"
+                    title="Semana"
+                    data-appointment-view="semana"
+                >▦</button>
+                <button
+                    class="appointment-icon-choice <?= ($filters['vista'] ?? '') === 'mes' ? 'active' : '' ?>"
+                    type="button"
+                    aria-label="Vista mensual"
+                    title="Mes"
+                    data-appointment-view="mes"
+                >▣</button>
+            </div>
+        </div>
+
+        <div class="inline-search appointment-filters" id="appointment-filter-panel" data-appointment-filter-panel hidden>
         <label>
             Buscar
             <input name="q" value="<?= View::escape((string) ($filters['q'] ?? '')) ?>" placeholder="Paciente, codigo o motivo">
@@ -95,29 +167,13 @@ ob_start();
         </label>
 
         <label>
-            Orden
-            <select name="orden">
-                <option value="desc" <?= ($filters['orden'] ?? 'desc') === 'desc' ? 'selected' : '' ?>>Mas recientes primero</option>
-                <option value="asc" <?= ($filters['orden'] ?? '') === 'asc' ? 'selected' : '' ?>>Mas antiguas primero</option>
-            </select>
-        </label>
-
-        <label>
-            Vista
-            <select name="vista">
-                <option value="listado" <?= ($filters['vista'] ?? 'listado') === 'listado' ? 'selected' : '' ?>>Listado</option>
-                <option value="semana" <?= ($filters['vista'] ?? '') === 'semana' ? 'selected' : '' ?>>Semana</option>
-                <option value="mes" <?= ($filters['vista'] ?? '') === 'mes' ? 'selected' : '' ?>>Mes</option>
-            </select>
-        </label>
-
-        <label>
             Fecha calendario
             <input type="date" name="calendar_date" value="<?= View::escape((string) ($filters['calendar_date'] ?? date('Y-m-d'))) ?>">
         </label>
 
         <button class="button small" type="submit">Filtrar</button>
         <a class="button small secondary" href="/citas">Limpiar</a>
+        </div>
     </form>
 
     <div class="summary-grid">

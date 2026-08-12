@@ -98,8 +98,11 @@ final class PatientFamilyRelationshipRepository
             'SELECT * FROM patient_family_relationships
              WHERE patient_id = :patient_id
                AND created_by_user_id = :created_by_user_id
-               AND from_node_key = :from_node_key
-               AND to_node_key = :to_node_key
+               AND (
+                    (from_node_key = :from_node_key AND to_node_key = :to_node_key)
+                    OR
+                    (from_node_key = :reverse_from_node_key AND to_node_key = :reverse_to_node_key)
+               )
                AND is_active = 1
              ORDER BY updated_at DESC, id DESC
              LIMIT 1'
@@ -109,6 +112,8 @@ final class PatientFamilyRelationshipRepository
             'created_by_user_id' => $createdByUserId,
             'from_node_key' => $fromNodeKey,
             'to_node_key' => $toNodeKey,
+            'reverse_from_node_key' => $toNodeKey,
+            'reverse_to_node_key' => $fromNodeKey,
         ]);
         $row = $statement->fetch();
 
@@ -178,6 +183,32 @@ final class PatientFamilyRelationshipRepository
                 SET is_active = 0, updated_at = NOW()
                 WHERE patient_id = :patient_id
                   AND is_active = 1
+                  AND (from_node_key = :from_node_key OR to_node_key = :to_node_key)';
+        $params = [
+            'patient_id' => $patientId,
+            'from_node_key' => $nodeKey,
+            'to_node_key' => $nodeKey,
+        ];
+
+        if (!$includeAll) {
+            $sql .= ' AND created_by_user_id = :created_by_user_id';
+            $params['created_by_user_id'] = $createdByUserId;
+        }
+
+        $statement = $this->db->prepare($sql);
+        $statement->execute($params);
+    }
+
+    public function activateForNode(
+        int $patientId,
+        string $nodeKey,
+        ?int $createdByUserId = null,
+        bool $includeAll = false
+    ): void {
+        $sql = 'UPDATE patient_family_relationships
+                SET is_active = 1, updated_at = NOW()
+                WHERE patient_id = :patient_id
+                  AND is_active = 0
                   AND (from_node_key = :from_node_key OR to_node_key = :to_node_key)';
         $params = [
             'patient_id' => $patientId,

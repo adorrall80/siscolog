@@ -83,6 +83,8 @@ final class AiAnalysisController
             $this->patients->findForUser($patientId, $this->currentUser());
             $this->analyses->review($patientId, $analysisId, [
                 'review_status' => (string) $request->input('review_status'),
+                'selected_source' => (string) $request->input('selected_source', 'ia'),
+                'final_text' => trim((string) $request->input('final_text')),
                 'professional_notes' => trim((string) $request->input('professional_notes')),
             ], $this->currentUser());
             Session::flash('success', 'Revision profesional guardada correctamente.');
@@ -103,7 +105,9 @@ final class AiAnalysisController
         try {
             $this->patients->findForUser($patientId, $this->currentUser());
             $this->analyses->setActive($patientId, $analysisId, $active, $this->currentUser());
-            Session::flash('success', $active ? 'Analisis IA activado correctamente.' : 'Analisis IA desactivado correctamente.');
+            Session::flash('success', $active
+                ? 'Evolucion IA activada correctamente.'
+                : 'Evolucion IA anulada. Puedes generar una nueva version con todas las sesiones activas.');
         } catch (RuntimeException $exception) {
             Session::flash('error', $exception->getMessage());
         }

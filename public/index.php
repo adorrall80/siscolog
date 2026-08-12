@@ -95,6 +95,7 @@ $router->get('/patients/{id}/vinculos', [PatientFamilyRelationshipController::cl
 $router->get('/patients/{id}/vinculos/pdf', [PatientFamilyRelationshipController::class, 'pdf']);
 $router->post('/patients/{id}/family-people', [PatientFamilyRelationshipController::class, 'storePerson']);
 $router->post('/patients/{id}/family-people/{personId}/desactivar', [PatientFamilyRelationshipController::class, 'deactivatePerson']);
+$router->post('/patients/{id}/family-people/{personId}/restaurar', [PatientFamilyRelationshipController::class, 'restorePerson']);
 $router->post('/patients/{id}/family-relationships', [PatientFamilyRelationshipController::class, 'store']);
 $router->post('/patients/{id}/family-node-position', [PatientFamilyRelationshipController::class, 'position']);
 $router->post('/patients/{id}/family-relationships/{relationshipId}/desactivar', [PatientFamilyRelationshipController::class, 'deactivate']);
@@ -104,6 +105,7 @@ $router->get('/patients/{id}/ai-history', [AiAnalysisController::class, 'history
 $router->post('/patients/{id}/ai-analysis/{analysisId}/review', [AiAnalysisController::class, 'review']);
 $router->get('/patients/{id}/ai-analysis/{analysisId}/activar', [AiAnalysisController::class, 'activate']);
 $router->get('/patients/{id}/ai-analysis/{analysisId}/desactivar', [AiAnalysisController::class, 'deactivate']);
+$router->post('/patients/{id}/ai-analysis/{analysisId}/anular', [AiAnalysisController::class, 'deactivate']);
 $router->get('/patients/{id}/sessions/{sessionId}/activar', [ClinicalSessionController::class, 'activate']);
 $router->get('/patients/{id}/sessions/{sessionId}/desactivar', [ClinicalSessionController::class, 'deactivate']);
 $router->get('/patients/{id}', [PatientController::class, 'show']);

@@ -252,14 +252,71 @@ final class ClinicalSessionRepository
     private function participantsForSession(int $sessionId): array
     {
         $statement = $this->db->prepare(
-            'SELECT csp.participant_text
+            'SELECT csp.patient_id, csp.participant_type, csp.participant_text, csp.associated_person_id,
+                    COALESCE(pap.is_active, 1) AS person_is_active
              FROM clinical_session_participants csp
+             LEFT JOIN patient_associated_people pap ON pap.id = csp.associated_person_id
              WHERE csp.clinical_session_id = :session_id AND csp.is_active = 1
              ORDER BY csp.participant_text ASC'
         );
         $statement->execute(['session_id' => $sessionId]);
 
-        return array_map('strval', $statement->fetchAll(PDO::FETCH_COLUMN));
+        return array_map(
+            fn (array $row): string => $this->participantWithRelationship($row),
+            $statement->fetchAll()
+        );
+    }
+
+    private function participantWithRelationship(array $participant): string
+    {
+        $text = trim((string) ($participant['participant_text'] ?? ''));
+
+        if ((string) ($participant['participant_type'] ?? '') === 'paciente') {
+            return 'Paciente';
+        }
+
+        $personId = (int) ($participant['associated_person_id'] ?? 0);
+        $patientId = (int) ($participant['patient_id'] ?? 0);
+
+        if ($personId <= 0 || $patientId <= 0) {
+            return $text;
+        }
+
+        $patientKey = 'patient:' . $patientId;
+        $personKey = 'person:' . $personId;
+        $relationship = $this->db->prepare(
+            'SELECT from_node_label, relationship_label, to_node_label, is_bidirectional
+             FROM patient_family_relationships
+             WHERE patient_id = :patient_id
+               AND (
+                    (from_node_key = :patient_from AND to_node_key = :person_to)
+                    OR
+                    (from_node_key = :person_from AND to_node_key = :patient_to)
+               )
+             ORDER BY is_active DESC, updated_at DESC, id DESC
+             LIMIT 1'
+        );
+        $relationship->execute([
+            'patient_id' => $patientId,
+            'patient_from' => $patientKey,
+            'person_to' => $personKey,
+            'person_from' => $personKey,
+            'patient_to' => $patientKey,
+        ]);
+        $row = $relationship->fetch();
+
+        $archived = !(bool) ($participant['person_is_active'] ?? true) ? ' · persona archivada' : '';
+
+        if (!$row) {
+            return $text . ' (sin relación definida con el paciente' . $archived . ')';
+        }
+
+        $from = trim((string) $row['from_node_label']);
+        $label = trim((string) $row['relationship_label']);
+        $to = trim((string) $row['to_node_label']);
+        $arrow = (bool) $row['is_bidirectional'] ? ' ↔ ' : ' → ';
+
+        return $text . ' (' . $from . ' — ' . $label . $arrow . $to . $archived . ')';
     }
 
     /**

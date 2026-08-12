@@ -42,6 +42,7 @@ final class PatientFamilyRelationshipController
             return Response::view('patients.relationships', [
                 'patient' => $patient,
                 'associatedPeople' => $associatedPeople,
+                'archivedPeople' => $this->associatedPeople->archivedByPatient($patientId, $this->currentUser()),
                 'participantTypes' => $this->maintainers->active(MaintainerService::SESSION_PARTICIPANT_TYPES),
                 'familyGraph' => $this->relationships->graph($patient, $associatedPeople, $this->currentUser()),
             ]);
@@ -57,11 +58,12 @@ final class PatientFamilyRelationshipController
 
         try {
             $this->patients->findForUser($patientId, $this->currentUser());
-            $this->associatedPeople->findOrCreate(
+            $this->associatedPeople->createForMap(
                 $patientId,
                 (string) $request->input('participant_type'),
                 (string) $request->input('display_name'),
-                $this->currentUser()
+                $this->currentUser(),
+                (string) $request->input('create_as_new', '0') === '1'
             );
             Session::flash('success', 'Persona agregada al mapa de vinculos.');
         } catch (InvalidArgumentException $exception) {
@@ -110,6 +112,23 @@ final class PatientFamilyRelationshipController
         }
 
         return Response::redirect("/patients/{$patientId}/vinculos#family-map");
+    }
+
+    public function restorePerson(Request $request): Response
+    {
+        $patientId = (int) $request->param('id');
+        $personId = (int) $request->param('personId');
+
+        try {
+            $this->patients->findForUser($patientId, $this->currentUser());
+            $this->associatedPeople->restore($patientId, $personId, $this->currentUser());
+            $this->relationships->restoreForPerson($patientId, $personId, $this->currentUser());
+            Session::flash('success', 'Persona restaurada con sus relaciones y participaciones anteriores.');
+        } catch (InvalidArgumentException | RuntimeException $exception) {
+            Session::flash('error', $exception->getMessage());
+        }
+
+        return Response::redirect("/patients/{$patientId}/vinculos#archived-people");
     }
 
     public function store(Request $request): Response

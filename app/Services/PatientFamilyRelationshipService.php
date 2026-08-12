@@ -34,10 +34,10 @@ final class PatientFamilyRelationshipService
             fn ($relationship): array => [
                 'id' => (int) $relationship->id,
                 'from' => $relationship->fromNodeKey,
-                'from_label' => $relationship->fromNodeLabel,
+                'from_label' => $nodes[$relationship->fromNodeKey]['display_label'] ?? $relationship->fromNodeLabel,
                 'label' => $relationship->relationshipLabel,
                 'to' => $relationship->toNodeKey,
-                'to_label' => $relationship->toNodeLabel,
+                'to_label' => $nodes[$relationship->toNodeKey]['display_label'] ?? $relationship->toNodeLabel,
                 'is_bidirectional' => $relationship->isBidirectional,
             ],
             $this->relationships->byPatient((int) $patient->id, $userId > 0 ? $userId : null, $includeAll)
@@ -149,6 +149,19 @@ final class PatientFamilyRelationshipService
         );
     }
 
+    public function restoreForPerson(int $patientId, int $personId, ?array $user = null): void
+    {
+        $includeAll = $this->isGlobalRole($user);
+        $userId = (int) ($user['id'] ?? 0);
+
+        $this->relationships->activateForNode(
+            $patientId,
+            'person:' . $personId,
+            $userId > 0 ? $userId : null,
+            $includeAll
+        );
+    }
+
     /**
      * @param AssociatedPerson[] $associatedPeople
      * @return array<string, array{key: string, label: string, role: string, kind: string}>
@@ -159,6 +172,7 @@ final class PatientFamilyRelationshipService
             'patient:' . $patient->id => [
                 'key' => 'patient:' . $patient->id,
                 'label' => $patient->fullName,
+                'display_label' => $patient->fullName,
                 'role' => 'Paciente',
                 'kind' => 'patient',
                 'participation_status' => 'SP',
@@ -170,6 +184,7 @@ final class PatientFamilyRelationshipService
             $nodes[$key] = [
                 'key' => $key,
                 'label' => $person->displayName,
+                'display_label' => $person->displayName . ' #' . $person->id,
                 'role' => $this->labelFromCode($person->participantType),
                 'kind' => 'participant',
                 'participation_status' => $person->hasParticipated ? 'SP' : 'NP',

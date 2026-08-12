@@ -31,6 +31,13 @@ final class AiProviderService
         return self::PROMPT_VERSION;
     }
 
+    public function promptForReview(array $context): string
+    {
+        return $this->promptTemplate()
+            . "\n\nCONTEXTO CLINICO ENVIADO:\n"
+            . json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    }
+
     /**
      * @return array<string, mixed>|null
      */

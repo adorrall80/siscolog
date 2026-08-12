@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS patient_associated_people (
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     created_at TIMESTAMP NULL,
     updated_at TIMESTAMP NULL,
-    UNIQUE KEY uq_patient_person (patient_id, created_by_user_id, participant_type, normalized_name),
+    INDEX idx_patient_person_lookup (patient_id, created_by_user_id, participant_type, normalized_name, is_active),
     CONSTRAINT fk_associated_people_patient
         FOREIGN KEY (patient_id) REFERENCES patients(id)
         ON DELETE CASCADE,

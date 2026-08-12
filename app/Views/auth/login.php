@@ -3,7 +3,7 @@
 use Core\View;
 
 $defaultEmail = 'admin@siscolog.local';
-$defaultPassword = 'admin123';
+$defaultPassword = '1';
 $emailValue = (string) ($_POST['email'] ?? $defaultEmail);
 $passwordValue = (string) ($_POST['password'] ?? $defaultPassword);
 
@@ -38,7 +38,7 @@ ob_start();
                 </label>
                 <label>
                     Contrasena
-                    <input type="password" name="password" value="<?= View::escape($passwordValue) ?>" placeholder="admin123" required>
+                    <input type="password" name="password" value="<?= View::escape($passwordValue) ?>" placeholder="Ingresa tu contraseña" required>
                 </label>
                 <button class="button" type="submit">Iniciar sesion</button>
             </form>
@@ -71,9 +71,9 @@ ob_start();
                 </a>
             <?php endif; ?>
 
-            <small class="auth-help">Usuario demo inicial: admin@siscolog.local / admin123</small>
-            <small class="auth-help">Profesional prueba: profesional@siscolog.local / demo123</small>
-            <small class="auth-help">Supervisor prueba: supervisor@siscolog.local / demo123</small>
+            <small class="auth-help">Usuario demo inicial: admin@siscolog.local / 1</small>
+            <small class="auth-help">Profesional prueba: profesional@siscolog.local / 1</small>
+            <small class="auth-help">Supervisor prueba: supervisor@siscolog.local / 1</small>
             <small class="auth-help">Google/Gmail solo permite correos registrados como usuarios activos.</small>
         </section>
     </main>

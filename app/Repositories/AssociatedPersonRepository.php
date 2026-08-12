@@ -72,6 +72,36 @@ final class AssociatedPersonRepository
         );
     }
 
+    /**
+     * @return AssociatedPerson[]
+     */
+    public function archivedByPatient(int $patientId, ?int $createdByUserId = null, bool $includeAll = false): array
+    {
+        if (!$includeAll && $createdByUserId === null) {
+            return [];
+        }
+
+        $sql = 'SELECT pap.*,
+                       EXISTS(
+                           SELECT 1 FROM clinical_session_participants csp
+                           WHERE csp.associated_person_id = pap.id AND csp.is_active = 1
+                       ) AS session_count
+                FROM patient_associated_people pap
+                WHERE pap.patient_id = :patient_id AND pap.is_active = 0';
+        $params = ['patient_id' => $patientId];
+
+        if (!$includeAll) {
+            $sql .= ' AND pap.created_by_user_id = :created_by_user_id';
+            $params['created_by_user_id'] = $createdByUserId;
+        }
+
+        $sql .= ' ORDER BY pap.updated_at DESC, pap.display_name ASC';
+        $statement = $this->db->prepare($sql);
+        $statement->execute($params);
+
+        return array_map(fn (array $row): AssociatedPerson => $this->map($row), $statement->fetchAll());
+    }
+
     public function findForPatient(int $patientId, int $id, ?int $createdByUserId = null, bool $includeAll = false): ?AssociatedPerson
     {
         if (!$includeAll && $createdByUserId === null) {
@@ -121,6 +151,7 @@ final class AssociatedPersonRepository
                AND created_by_user_id <=> :created_by_user_id
                AND participant_type = :participant_type
                AND normalized_name = :normalized_name
+             ORDER BY is_active DESC, id DESC
              LIMIT 1'
         );
         $statement->execute([
@@ -134,15 +165,16 @@ final class AssociatedPersonRepository
         return $row ? $this->map($row) : null;
     }
 
-    public function create(int $patientId, string $participantType, string $displayName, string $normalizedName, ?int $createdByUserId = null): int
+    public function create(int $patientId, string $participantType, string $displayName, string $normalizedName, ?int $createdByUserId = null, bool $createAsNew = false): int
     {
         $existing = $this->findByNormalized($patientId, $participantType, $normalizedName, $createdByUserId);
 
-        if ($existing !== null) {
-            if (!$existing->isActive) {
-                $this->setActive($patientId, (int) $existing->id, true, $createdByUserId);
-            }
+        if ($existing !== null && $existing->isActive && !$createAsNew) {
             return (int) $existing->id;
+        }
+
+        if ($existing !== null && !$createAsNew) {
+            throw new \InvalidArgumentException('Ya existe una persona archivada con el mismo nombre y tipo. Puedes restaurarla o marcar que se trata de una persona diferente.');
         }
 
         $statement = $this->db->prepare(

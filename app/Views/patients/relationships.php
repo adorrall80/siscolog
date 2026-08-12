@@ -20,6 +20,7 @@ foreach ($familyNodes as $node) {
     }
 }
 $participantTypes ??= [];
+$archivedPeople ??= [];
 $manualPersonTypes = array_values(array_filter(
     $participantTypes,
     fn ($type): bool => $type->code !== 'paciente'
@@ -138,8 +139,38 @@ ob_start();
             <input name="display_name" placeholder="Ej: Tio Juan, Amiga Carla, Abuelo Luis" required>
         </label>
         <button class="button small secondary" type="submit">Agregar persona al mapa</button>
+        <label class="family-create-new-choice">
+            <input type="checkbox" name="create_as_new" value="1">
+            <span><strong>Es una persona diferente</strong><small>Úsalo solamente si existe otra persona archivada con el mismo nombre.</small></span>
+        </label>
         <small>Usalo para personas importantes del caso que aun no aparecen en sesiones. Quedaran como NP hasta que participen.</small>
     </form>
+
+    <?php if ($archivedPeople !== []): ?>
+        <button class="button small secondary family-archived-toggle" type="button" data-family-archived-toggle aria-expanded="false">
+            <span data-family-archived-toggle-label>Mostrar archivados (<?= View::escape((string) count($archivedPeople)) ?>)</span>
+        </button>
+        <section class="family-archived-people" id="archived-people" data-family-archived-panel hidden>
+            <div>
+                <p class="eyebrow">Personas archivadas</p>
+                <strong>Restaurar identidad e historial</strong>
+                <small>Restaurar recupera a la misma persona, sus relaciones y sus participaciones anteriores.</small>
+            </div>
+            <div class="family-archived-list">
+                <?php foreach ($archivedPeople as $archivedPerson): ?>
+                    <article>
+                        <div>
+                            <strong><?= View::escape($archivedPerson->displayName) ?> #<?= View::escape((string) $archivedPerson->id) ?></strong>
+                            <small><?= View::escape($archivedPerson->participantType) ?><?= $archivedPerson->hasParticipated ? ' · Participó en sesiones' : ' · Sin sesiones' ?></small>
+                        </div>
+                        <form method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/family-people/<?= View::escape((string) $archivedPerson->id) ?>/restaurar">
+                            <button class="button small secondary" type="submit">Restaurar</button>
+                        </form>
+                    </article>
+                <?php endforeach; ?>
+            </div>
+        </section>
+    <?php endif; ?>
 
     <form class="family-relation-form is-visual" method="post" action="/patients/<?= View::escape((string) $patient->id) ?>/family-relationships" data-family-relation-form>
         <datalist id="family-relationship-suggestions">
@@ -242,11 +273,12 @@ ob_start();
                     <?php $roleClass = preg_replace('/[^a-z0-9]+/', '-', strtolower($node['role'])) ?: 'participante'; ?>
                     <?php $participationStatus = (string) ($node['participation_status'] ?? 'NP'); ?>
                     <?php $participationLabel = $participationStatus === 'SP' ? 'Si participo en alguna sesion' : 'No participo; agregado solo para el mapa/vinculos'; ?>
-                    <?php $nodeTooltip = $node['label'] . ' | Tipo: ' . $node['role'] . ' | ' . $participationStatus . ': ' . $participationLabel; ?>
+                    <?php $nodeDisplayLabel = (string) ($node['display_label'] ?? $node['label']); ?>
+                    <?php $nodeTooltip = $nodeDisplayLabel . ' | Tipo: ' . $node['role'] . ' | ' . $participationStatus . ': ' . $participationLabel; ?>
                     <article
                         class="family-node role-<?= View::escape($roleClass) ?> <?= $node['kind'] === 'patient' ? 'is-patient' : '' ?>"
                         data-family-node="<?= View::escape($node['key']) ?>"
-                        data-family-node-label="<?= View::escape($node['label']) ?>"
+                        data-family-node-label="<?= View::escape($nodeDisplayLabel) ?>"
                         data-family-x="<?= View::escape((string) ($node['x'] ?? 50)) ?>"
                         data-family-y="<?= View::escape((string) ($node['y'] ?? 50)) ?>"
                         style="left: <?= View::escape((string) ($node['x'] ?? 50)) ?>%; top: <?= View::escape((string) ($node['y'] ?? 50)) ?>%;"
@@ -263,7 +295,7 @@ ob_start();
                         </span>
                         <span class="person-icon" aria-hidden="true"></span>
                         <div>
-                            <strong title="<?= View::escape($node['label']) ?>"><?= View::escape($node['label']) ?></strong>
+                            <strong title="<?= View::escape($nodeDisplayLabel) ?>"><?= View::escape($nodeDisplayLabel) ?></strong>
                             <small title="<?= View::escape($node['role']) ?>"><?= View::escape($node['role']) ?></small>
                         </div>
                         <?php if (($node['can_remove'] ?? false) === true): ?>
