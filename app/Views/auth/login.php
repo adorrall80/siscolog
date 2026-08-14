@@ -1,11 +1,11 @@
 <?php
 
+use Core\Env;
 use Core\View;
 
-$defaultEmail = 'admin@siscolog.local';
-$defaultPassword = '1';
+$showDemoCredentials = Env::get('APP_ENV', 'production') === 'local';
+$defaultEmail = $showDemoCredentials ? 'admin@siscolog.local' : '';
 $emailValue = (string) ($_POST['email'] ?? $defaultEmail);
-$passwordValue = (string) ($_POST['password'] ?? $defaultPassword);
 
 ob_start();
 ?>
@@ -34,11 +34,11 @@ ob_start();
             <form class="form-grid" method="post" action="/login">
                 <label>
                     Email
-                    <input type="email" name="email" value="<?= View::escape($emailValue) ?>" placeholder="admin@siscolog.local" required autofocus>
+                    <input type="email" name="email" value="<?= View::escape($emailValue) ?>" placeholder="admin@siscolog.local" autocomplete="username" required autofocus>
                 </label>
                 <label>
                     Contrasena
-                    <input type="password" name="password" value="<?= View::escape($passwordValue) ?>" placeholder="Ingresa tu contraseña" required>
+                    <input type="password" name="password" placeholder="Ingresa tu contraseña" autocomplete="current-password" required>
                 </label>
                 <button class="button" type="submit">Iniciar sesion</button>
             </form>
@@ -71,9 +71,11 @@ ob_start();
                 </a>
             <?php endif; ?>
 
-            <small class="auth-help">Usuario demo inicial: admin@siscolog.local / 1</small>
-            <small class="auth-help">Profesional prueba: profesional@siscolog.local / 1</small>
-            <small class="auth-help">Supervisor prueba: supervisor@siscolog.local / 1</small>
+            <?php if ($showDemoCredentials): ?>
+                <small class="auth-help">Usuario demo inicial: admin@siscolog.local / 1</small>
+                <small class="auth-help">Profesional prueba: profesional@siscolog.local / 1</small>
+                <small class="auth-help">Supervisor prueba: supervisor@siscolog.local / 1</small>
+            <?php endif; ?>
             <small class="auth-help">Google/Gmail solo permite correos registrados como usuarios activos.</small>
         </section>
     </main>

@@ -1024,12 +1024,19 @@ body.layout-no-left .workspace.workspace-no-right {
     overflow: hidden;
 }
 
-.record-tabs a {
+.record-tabs a,
+.record-tabs span {
     padding: 0.58rem 0.75rem;
     color: #5d6674;
     font-size: 0.8rem;
     text-decoration: none;
     border-right: 1px solid var(--line);
+}
+
+.record-tabs span[aria-disabled="true"],
+.icon-action[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .record-tabs a.active {

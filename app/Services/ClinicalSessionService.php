@@ -92,12 +92,20 @@ final class ClinicalSessionService
         $this->sessions->update($patientId, $sessionId, $data);
     }
 
-    public function setActive(int $patientId, int $sessionId, bool $active): void
+    public function setActive(int $patientId, int $sessionId, bool $active, ?array $user = null): void
     {
         $session = $this->sessions->findForPatient($patientId, $sessionId);
 
         if ($session === null) {
             throw new RuntimeException('Sesion clinica no encontrada para este paciente.');
+        }
+
+        if ((string) ($user['role'] ?? '') !== 'administrador') {
+            $userId = (int) ($user['id'] ?? 0);
+
+            if ($userId <= 0 || !$this->sessions->belongsToProfessional($patientId, $sessionId, $userId)) {
+                throw new RuntimeException('No tienes permiso para modificar esta sesion clinica.');
+            }
         }
 
         $this->sessions->setActive($sessionId, $active);

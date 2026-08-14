@@ -9,9 +9,9 @@ Este documento permite registrar el avance de la preparación, pruebas y mejoras
 
 | Perfil | Usuario | Contraseña |
 |---|---|---|
-| Administrador | `admin@siscolog.local` | `admin123` |
-| Profesional | `profesional@siscolog.local` | `demo123` |
-| Supervisor | `supervisor@siscolog.local` | `demo123` |
+| Administrador | `admin@siscolog.local` | `1` |
+| Profesional | `profesional@siscolog.local` | `1` |
+| Supervisor | `supervisor@siscolog.local` | `1` |
 
 ---
 
@@ -26,14 +26,14 @@ Este documento permite registrar el avance de la preparación, pruebas y mejoras
 - [x] Ejecutar los datos iniciales o *seeders*.
 - [x] Definir `http://localhost:8787` como dirección independiente de pruebas.
 - [x] Confirmar que la página de acceso cargue sin errores.
-- [ ] Revisar que no existan errores en la consola del navegador.
+- [x] Revisar que no existan errores en la consola del navegador.
 - [x] Validar el acceso con la cuenta de administrador.
 - [x] Validar el acceso con la cuenta de profesional.
 - [x] Validar el acceso con la cuenta de supervisor.
 
 ### Resultado
 
-- [ ] Entorno local preparado y estable.
+- [x] Entorno local preparado y estable.
 
 Notas:
 
@@ -49,6 +49,13 @@ Notas:
 - Se creó `INICIAR_SISCOLOG.bat` para iniciar el servidor y abrir el navegador.
 - La aplicación no depende de Apache de Laragon para este modo de ejecución.
 - Pendiente: revisión visual de la consola del navegador.
+
+12-08-2026:
+- PHP 8.3.30 verificado usando `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`.
+- Base de datos `siscolog` conectada; 36 tablas y 35 migraciones registradas.
+- Servidor local levantado en `http://localhost:8787`.
+- `/login` y `/panel` cargaron en navegador sin errores de consola, `pageerror`, solicitudes fallidas ni respuestas HTTP 4xx/5xx relevantes.
+- Las credenciales reales del ambiente local son `1` para administrador, profesional y supervisor; se actualizó la tabla de cuentas de prueba.
 ```
 
 ---
@@ -58,10 +65,10 @@ Notas:
 - [x] Comprobar el acceso con credenciales válidas.
 - [x] Comprobar el rechazo de credenciales inválidas.
 - [ ] Verificar que la contraseña no quede visible después de un error.
-- [ ] Comprobar el cierre de sesión.
-- [ ] Verificar que no sea posible volver a una pantalla protegida después de cerrar sesión.
+- [x] Comprobar el cierre de sesión.
+- [x] Verificar que no sea posible volver a una pantalla protegida después de cerrar sesión.
 - [ ] Comprobar la expiración de sesión por inactividad.
-- [ ] Verificar la regeneración de la sesión después de iniciar sesión.
+- [x] Verificar la regeneración de la sesión después de iniciar sesión.
 - [ ] Probar el registro de un usuario nuevo.
 - [ ] Probar el ingreso mediante Google cuando esté configurado.
 - [ ] Confirmar que Google solo permita usuarios autorizados y activos.
@@ -83,6 +90,15 @@ Notas:
 - Una solicitud sin sesión a `/usuarios` fue redirigida a `/login`.
 - El formulario de acceso contiene y valida un token CSRF.
 - La comprobación CSRF del resto de los formularios sigue pendiente.
+
+12-08-2026:
+- Las contraseñas documentadas anteriormente (`admin123` y `demo123`) fueron rechazadas; las tres cuentas demo autentican con `1`.
+- Credenciales inválidas redirigen a `/login`.
+- Después de un error de login, el campo de contraseña vuelve a mostrarse con valor precargado `1`; queda pendiente corregirlo.
+- El inicio de sesión regenera `PHPSESSID`.
+- `/logout` redirige a `/login` y una visita posterior a `/usuarios` también queda en `/login`.
+- Un POST a `/login` sin `_csrf` fue rechazado y no inició sesión.
+- La cookie local `PHPSESSID` se observó como `path=/`, sin flags `HttpOnly`, `Secure` ni `SameSite` en la cabecera.
 ```
 
 ---
@@ -91,17 +107,17 @@ Notas:
 
 ### Administrador
 
-- [ ] Puede acceder al panel principal.
+- [x] Puede acceder al panel principal.
 - [x] Puede administrar usuarios.
-- [ ] Puede administrar mantenedores.
-- [ ] Puede administrar instrumentos psicométricos.
-- [ ] Puede consultar la auditoría.
-- [ ] Puede acceder a informes permitidos.
+- [x] Puede administrar mantenedores.
+- [x] Puede administrar instrumentos psicométricos.
+- [x] Puede consultar la auditoría.
+- [x] Puede acceder a informes permitidos.
 - [ ] No puede acceder a acciones fuera de su autorización.
 
 ### Profesional
 
-- [ ] Puede acceder al panel principal.
+- [x] Puede acceder al panel principal.
 - [ ] Debe completar su perfil profesional cuando corresponda.
 - [ ] Puede consultar los pacientes autorizados.
 - [ ] Puede registrar y editar pacientes autorizados.
@@ -110,13 +126,13 @@ Notas:
 - [ ] Puede aplicar instrumentos psicométricos.
 - [ ] Puede solicitar análisis asistidos por IA.
 - [x] No puede administrar usuarios.
-- [ ] No puede acceder a mantenedores restringidos.
+- [x] No puede acceder a mantenedores restringidos.
 - [ ] No puede consultar información de pacientes ajenos.
 
 ### Supervisor
 
-- [ ] Puede acceder al panel principal.
-- [ ] Puede consultar los módulos autorizados.
+- [x] Puede acceder al panel principal.
+- [x] Puede consultar los módulos autorizados.
 - [ ] Puede revisar información clínica permitida.
 - [ ] Puede revisar resultados y análisis cuando corresponda.
 - [ ] Puede consultar auditoría si su rol lo permite.
@@ -127,8 +143,8 @@ Notas:
 
 - [ ] Probar el acceso desde la navegación visible.
 - [x] Probar el acceso escribiendo directamente una URL restringida.
-- [ ] Probar solicitudes de modificación con un perfil sin permiso.
-- [ ] Confirmar que el servidor rechace la acción y no solo oculte el enlace.
+- [x] Probar solicitudes de modificación con un perfil sin permiso.
+- [x] Confirmar que el servidor rechace la acción y no solo oculte el enlace.
 
 ### Resultado
 
@@ -141,6 +157,12 @@ Notas:
 - `/usuarios` fue accesible para administrador.
 - El acceso directo a `/usuarios` fue rechazado para profesional y supervisor.
 - Todavía falta recorrer todos los módulos y operaciones de cada perfil.
+
+12-08-2026:
+- Administrador accedió por URL directa a `/`, `/panel`, `/usuarios`, `/maintainers`, `/instrumentos`, `/auditoria`, `/informes`, `/patients` y `/citas`.
+- Profesional accedió a `/`, `/panel`, `/informes`, `/patients` y `/citas`; `/usuarios`, `/maintainers`, `/instrumentos` y `/auditoria` redirigieron a `/`.
+- Supervisor accedió a `/`, `/panel`, `/informes`, `/patients` y `/citas`; `/usuarios`, `/maintainers`, `/instrumentos` y `/auditoria` redirigieron a `/`.
+- Un POST a `/usuarios` como profesional, con CSRF válido, fue rechazado por permisos; el conteo de usuarios permaneció en 4.
 ```
 
 ---
@@ -242,7 +264,12 @@ Notas:
 Notas:
 
 ```text
-
+12-08-2026:
+- El formulario de login sigue mostrando cuentas demo y precarga la contraseña `1`.
+- `/logout` está implementado como GET.
+- Se observaron rutas GET para activar/desactivar usuarios, pacientes, consentimientos, sesiones, resultados psicométricos, instrumentos, análisis IA y mantenedores.
+- La respuesta local de `/login` no incluyó `Content-Security-Policy`, `X-Content-Type-Options`, protección contra `iframe`, `Referrer-Policy` ni `Strict-Transport-Security`.
+- La cookie `PHPSESSID` se observó sin `HttpOnly`, `Secure` ni `SameSite`.
 ```
 
 ---
@@ -305,7 +332,11 @@ Notas:
 Notas:
 
 ```text
-
+12-08-2026:
+- La pantalla de login carga correctamente en escritorio y queda disponible en `http://localhost:8787/login`.
+- Se confirmó visualmente que el formulario de login muestra credenciales demo y precarga la contraseña `1`.
+- El panel carga tras autenticar con administrador.
+- Queda pendiente recorrer visualmente módulos internos, tablet, móvil, modo oscuro, formularios extensos, tablas, calendario, mapa familiar y navegación por teclado.
 ```
 
 ---
@@ -400,13 +431,14 @@ Notas:
 
 | N.º | Fecha | Módulo | Descripción | Prioridad | Estado | Responsable |
 |---:|---|---|---|---|---|---|
-| 1 |  |  |  |  | Pendiente |  |
-| 2 |  |  |  |  | Pendiente |  |
-| 3 |  |  |  |  | Pendiente |  |
+| 1 | 12-08-2026 | Autenticación | El login precarga la contraseña `1` y vuelve a mostrarla después de un error de credenciales. | Alta | Pendiente |  |
+| 2 | 12-08-2026 | Seguridad | `/logout` y varias activaciones/desactivaciones siguen usando GET para cambios de estado. | Alta | Pendiente |  |
+| 3 | 12-08-2026 | Seguridad | La cookie `PHPSESSID` local se entrega sin flags `HttpOnly`, `Secure` ni `SameSite`. | Alta | Pendiente |  |
+| 4 | 12-08-2026 | Seguridad | No se observaron cabeceras `Content-Security-Policy`, `X-Content-Type-Options`, protección contra `iframe`, `Referrer-Policy` ni HSTS. | Media | Pendiente |  |
 
 ## Resumen de avance
 
-- [ ] Preparación del entorno
+- [x] Preparación del entorno
 - [ ] Autenticación y sesiones
 - [ ] Permisos por perfil
 - [ ] Flujo clínico completo

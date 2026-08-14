@@ -6,6 +6,7 @@ use Core\View;
 $currentUser = Session::get('user', []);
 $currentRole = is_array($currentUser) ? (string) ($currentUser['role'] ?? '') : '';
 $isAdmin = $currentRole === 'administrador';
+$patientId = is_object($patient ?? null) && isset($patient->id) ? (string) $patient->id : null;
 ?>
 
 <aside class="module sidebar sidebar-left" aria-label="Columna izquierda">
@@ -13,10 +14,10 @@ $isAdmin = $currentRole === 'administrador';
     <h2>Modulos del caso</h2>
 
     <a class="module-link" href="/patients">Pacientes</a>
-    <a class="module-link" href="#">Sesiones clinicas</a>
-    <a class="module-link" href="<?= isset($patient) ? '/patients/' . View::escape((string) $patient->id) . '/consents/create' : '#' ?>">Consentimientos</a>
-    <a class="module-link" href="#">Instrumentos</a>
-    <a class="module-link" href="#">Plan terapeutico</a>
+    <a class="module-link" href="/citas">Sesiones clinicas</a>
+    <a class="module-link" href="<?= $patientId !== null ? '/patients/' . View::escape($patientId) . '/consents/create' : '/patients' ?>">Consentimientos</a>
+    <a class="module-link" href="/instrumentos">Instrumentos</a>
+    <span class="module-link" aria-disabled="true">Plan terapeutico</span>
     <?php if ($isAdmin): ?>
         <a class="module-link" href="/maintainers">Mantenedores</a>
     <?php endif; ?>

@@ -182,6 +182,24 @@ final class ClinicalSessionRepository
         return $row ? $this->map($row, $this->participantsForSession((int) $row['id']), $this->topicsForSession((int) $row['id'])) : null;
     }
 
+    public function belongsToProfessional(int $patientId, int $sessionId, int $professionalId): bool
+    {
+        $statement = $this->db->prepare(
+            'SELECT COUNT(*)
+             FROM clinical_sessions
+             WHERE id = :id
+               AND patient_id = :patient_id
+               AND professional_id = :professional_id'
+        );
+        $statement->execute([
+            'id' => $sessionId,
+            'patient_id' => $patientId,
+            'professional_id' => $professionalId,
+        ]);
+
+        return (int) $statement->fetchColumn() > 0;
+    }
+
     public function setActive(int $id, bool $active): void
     {
         $statement = $this->db->prepare(

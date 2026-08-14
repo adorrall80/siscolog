@@ -130,8 +130,8 @@ ob_start();
     <a href="/patients/<?= View::escape((string) $patient->id) ?>/sessions/create">Sesiones</a>
     <a href="/patients/<?= View::escape((string) $patient->id) ?>/consents/create">Consentimientos</a>
     <a href="/patients/<?= View::escape((string) $patient->id) ?>/ai-history">Historial IA</a>
-    <a href="#">Recetas</a>
-    <a href="#">Archivos</a>
+    <span aria-disabled="true">Recetas</span>
+    <span aria-disabled="true">Archivos</span>
 </nav>
 
 <section class="action-toolbar">
@@ -144,8 +144,8 @@ ob_start();
     <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>/sessions/create">Nueva sesion</a>
     <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>/consents/create">Consentimiento</a>
     <a class="button small secondary" href="/patients/<?= View::escape((string) $patient->id) ?>/reporte">Reporte</a>
-    <a class="icon-action" href="#">?</a>
-    <a class="icon-action" href="#">@</a>
+    <span class="icon-action" aria-disabled="true" title="Ayuda no disponible">?</span>
+    <span class="icon-action" aria-disabled="true" title="Mensajeria no disponible">@</span>
 </section>
 
 <section class="clinical-record">

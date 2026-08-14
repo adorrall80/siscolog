@@ -46,13 +46,13 @@ ob_start();
 <nav class="record-tabs" aria-label="Secciones de ficha paciente">
     <a href="/patients/<?= View::escape((string) $patient->id) ?>">Ficha paciente</a>
     <a class="active" href="/patients/<?= View::escape((string) $patient->id) ?>/vinculos">Vinculos con paciente</a>
-    <a href="#">Sesiones H.Clinica</a>
-    <a href="#">Informes</a>
+    <a href="/patients/<?= View::escape((string) $patient->id) ?>#sesiones">Sesiones H.Clinica</a>
+    <a href="/patients/<?= View::escape((string) $patient->id) ?>/reporte">Informes</a>
     <a href="/patients/<?= View::escape((string) $patient->id) ?>/sessions/create">Sesiones</a>
     <a href="/patients/<?= View::escape((string) $patient->id) ?>/consents/create">Consentimientos</a>
     <a href="/patients/<?= View::escape((string) $patient->id) ?>/ai-history">Historial IA</a>
-    <a href="#">Recetas</a>
-    <a href="#">Archivos</a>
+    <span aria-disabled="true">Recetas</span>
+    <span aria-disabled="true">Archivos</span>
 </nav>
 
 <section class="action-toolbar">

@@ -94,7 +94,7 @@ final class ClinicalSessionController
 
         try {
             $this->patients->findForUser($patientId, $this->currentUser());
-            $this->sessions->setActive($patientId, $sessionId, $active);
+            $this->sessions->setActive($patientId, $sessionId, $active, $this->currentUser());
             Session::flash('success', $active ? 'Sesion clinica activada correctamente.' : 'Sesion clinica desactivada correctamente.');
         } catch (RuntimeException $exception) {
             Session::flash('error', $exception->getMessage());
